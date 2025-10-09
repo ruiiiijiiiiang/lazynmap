@@ -2,9 +2,22 @@ use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode},
     prelude::*,
-    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use std::error::Error;
+
+const SECTIONS: [&str; 10] = [
+    "Target Specification",
+    "Host Discovery",
+    "Scan Technique",
+    "Port Specification",
+    "Service Detection",
+    "OS Detection",
+    "Timing",
+    "Evasion and Spoofing",
+    "Output",
+    "Miscellaneous",
+];
 
 pub struct Tui {
     pub scroll_state: ScrollbarState,
@@ -44,11 +57,24 @@ impl Tui {
                         return Ok(());
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        self.scroll = self.scroll.saturating_add(1);
+                        self.highlighted_section = if self.highlighted_section == SECTIONS.len() - 1
+                        {
+                            0
+                        } else {
+                            self.highlighted_section + 1
+                        };
+                        // TODO: fix scroll
+                        self.scroll = self.scroll.saturating_add(10);
                         self.scroll_state = self.scroll_state.position(self.scroll);
                     }
                     KeyCode::Char('k') | KeyCode::Up => {
-                        self.scroll = self.scroll.saturating_sub(1);
+                        self.highlighted_section = if self.highlighted_section == 0 {
+                            SECTIONS.len() - 1
+                        } else {
+                            self.highlighted_section - 1
+                        };
+                        // TODO: fix scroll
+                        self.scroll = self.scroll.saturating_sub(10);
                         self.scroll_state = self.scroll_state.position(self.scroll);
                     }
                     _ => {}
@@ -60,27 +86,47 @@ impl Tui {
     fn draw(&mut self, frame: &mut Frame) {
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Length(20), Constraint::Min(0)].as_ref())
+            .constraints([Constraint::Length(25), Constraint::Min(0)])
             .split(frame.area());
 
-        let left_block = Block::default().title("Left Column").borders(Borders::ALL);
-        let sections = vec![
-            Line::from("Target specification"),
-            Line::from("Host Discovery"),
-            Line::from("Scan Technique"),
-            Line::from("Port Specification"),
-            Line::from("ServiceDetection"),
-            Line::from("OS Detection"),
-            Line::from("Timing"),
-            Line::from("Firewall Evasion"),
-            Line::from("Miscellaneous"),
-        ];
+        let left_block = Block::bordered().title("Sections");
+        let sections = SECTIONS
+            .iter()
+            .enumerate()
+            .map(|(index, &section)| {
+                if index == self.highlighted_section {
+                    Line::from(section).style(Style::default().fg(Color::Yellow))
+                } else {
+                    Line::from(section)
+                }
+            })
+            .collect::<Vec<_>>();
         let section_paragraph = Paragraph::new(sections).block(left_block);
         frame.render_widget(section_paragraph, chunks[0]);
 
-        let right_block = Block::default().title("Right Column").borders(Borders::ALL);
-        let right_paragraph = Paragraph::new("Takes the rest of the space").block(right_block);
-        frame.render_widget(right_paragraph, chunks[1]);
+        let right_block = Block::bordered().title("Flags");
+        let flag_areas = right_block.inner(chunks[1]);
+        let flag_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(10); SECTIONS.len()])
+            .split(flag_areas);
+
+        let flag_blocks = SECTIONS.iter().enumerate().map(|(index, &section)| {
+            if index == self.highlighted_section {
+                Block::bordered()
+                    .title(section)
+                    .border_style(Style::default().fg(Color::Yellow))
+            } else {
+                Block::bordered().title(section)
+            }
+        });
+        frame.render_widget(right_block, chunks[1]);
+        for (index, flag_block) in flag_blocks.enumerate() {
+            frame.render_widget(flag_block, flag_chunks[index]);
+        }
+
+        let total_height = SECTIONS.len() * 10;
+        self.scroll_state = self.scroll_state.content_length(total_height);
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some("↑"))
@@ -90,3 +136,4 @@ impl Tui {
         );
     }
 }
+
