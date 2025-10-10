@@ -56,6 +56,8 @@ pub struct HostDiscovery {
     pub icmp_timestamp: bool,      // -PP
     pub icmp_netmask: bool,        // -PM
     pub ip_protocol_ping: Vec<u8>, // -PO
+    pub dns_servers: Vec<String>,  // --dns-servers
+    pub system_dns: bool,          // --system-dns
     pub traceroute: bool,          // --traceroute
 }
 
@@ -216,8 +218,6 @@ pub struct MiscOptions {
     pub release_memory: bool,     // --release-memory
     pub version: bool,            // -V
     pub help: bool,               // -h
-    pub dns_servers: Vec<String>, // --dns-servers
-    pub system_dns: bool,         // --system-dns
     pub resolve_all: bool,        // -R
     pub no_resolve: bool,         // -n
     pub unique: bool,             // --unique

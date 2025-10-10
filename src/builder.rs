@@ -92,6 +92,12 @@ impl NmapCommandBuilder {
         if hd.traceroute {
             cmd.push_str(" --traceroute");
         }
+        if !hd.dns_servers.is_empty() {
+            write!(cmd, " --dns-servers {}", hd.dns_servers.join(",")).ok();
+        }
+        if hd.system_dns {
+            cmd.push_str(" --system-dns");
+        }
     }
 
     fn build_scan_technique(cmd: &mut String, st: &ScanTechnique) {
@@ -439,12 +445,6 @@ impl NmapCommandBuilder {
         if misc.help {
             cmd.push_str(" -h");
         }
-        if !misc.dns_servers.is_empty() {
-            write!(cmd, " --dns-servers {}", misc.dns_servers.join(",")).ok();
-        }
-        if misc.system_dns {
-            cmd.push_str(" --system-dns");
-        }
         if misc.resolve_all {
             cmd.push_str(" -R");
         }
@@ -629,6 +629,7 @@ mod tests {
         scan.host_discovery.ack_discovery = vec![22];
         scan.host_discovery.udp_discovery = vec![53];
         scan.host_discovery.icmp_echo = true;
+        scan.host_discovery.dns_servers = vec!["8.8.8.8".to_string(), "1.1.1.1".to_string()];
 
         let cmd = NmapCommandBuilder::build(&scan);
         assert!(cmd.contains(" -sL"));
@@ -638,6 +639,7 @@ mod tests {
         assert!(cmd.contains(" -PU53"));
         assert!(cmd.contains(" -PE"));
         assert!(cmd.contains(" 192.168.1.0/24"));
+        assert!(cmd.contains(" --dns-servers 8.8.8.8,1.1.1.1"));
     }
 
     #[test]
@@ -704,13 +706,11 @@ mod tests {
         scan.misc.ipv6 = true;
         scan.misc.aggressive = true;
         scan.misc.no_resolve = true;
-        scan.misc.dns_servers = vec!["8.8.8.8".to_string(), "1.1.1.1".to_string()];
 
         let cmd = NmapCommandBuilder::build(&scan);
         assert!(cmd.contains(" -6"));
         assert!(cmd.contains(" -A"));
         assert!(cmd.contains(" -n"));
-        assert!(cmd.contains(" --dns-servers 8.8.8.8,1.1.1.1"));
         assert!(cmd.contains(" example.com"));
     }
 }

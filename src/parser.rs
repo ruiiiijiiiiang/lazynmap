@@ -143,6 +143,13 @@ impl NmapParser {
                 }
             }
             "--traceroute" => scan.host_discovery.traceroute = true,
+            "--dns-servers" => {
+                scan.host_discovery.dns_servers = Self::get_next_value(iter, flag)?
+                    .split(',')
+                    .map(String::from)
+                    .collect()
+            }
+            "--system-dns" => scan.host_discovery.system_dns = true,
 
             // Scan techniques
             "-sS" => scan.scan_technique = ScanTechnique::Syn,
@@ -378,13 +385,6 @@ impl NmapParser {
             "--release-memory" => scan.misc.release_memory = true,
             "-V" | "--version" => scan.misc.version = true,
             "-h" | "--help" => scan.misc.help = true,
-            "--dns-servers" => {
-                scan.misc.dns_servers = Self::get_next_value(iter, flag)?
-                    .split(',')
-                    .map(String::from)
-                    .collect()
-            }
-            "--system-dns" => scan.misc.system_dns = true,
             "-R" => scan.misc.resolve_all = true,
             "-n" => scan.misc.no_resolve = true,
             "--unique" => scan.misc.unique = true,
@@ -568,10 +568,7 @@ mod tests {
             Some(TimingTemplate::Aggressive)
         ));
         assert_eq!(scan.timing.min_rate, Some(1000));
-        assert_eq!(
-            scan.output.all_formats,
-            Some("full_scan".to_string())
-        );
+        assert_eq!(scan.output.all_formats, Some("full_scan".to_string()));
         assert_eq!(scan.targets, vec!["192.168.1.1"]);
     }
 }

@@ -1,10 +1,14 @@
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode},
+    layout::Flex,
     prelude::*,
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use std::error::Error;
+
+use crate::widgets::checkbox::{Checkbox, CheckboxState};
+use crate::{scan::NmapScan, sections::host_discovery::render_host_discovery};
 
 const SECTIONS: [&str; 10] = [
     "Target Specification",
@@ -19,18 +23,20 @@ const SECTIONS: [&str; 10] = [
     "Miscellaneous",
 ];
 
-pub struct Tui {
+pub struct Tui<'a> {
     pub scroll_state: ScrollbarState,
     pub scroll: usize,
     pub highlighted_section: usize,
+    pub scan: &'a mut NmapScan,
 }
 
-impl Tui {
-    pub fn new() -> Self {
+impl<'a> Tui<'a> {
+    pub fn new(scan: &'a mut NmapScan) -> Self {
         Self {
             scroll_state: ScrollbarState::default(),
             scroll: 0,
             highlighted_section: 0,
+            scan,
         }
     }
 
@@ -111,19 +117,31 @@ impl Tui {
             .constraints([Constraint::Length(10); SECTIONS.len()])
             .split(flag_areas);
 
-        let flag_blocks = SECTIONS.iter().enumerate().map(|(index, &section)| {
-            if index == self.highlighted_section {
-                Block::bordered()
-                    .title(section)
-                    .border_style(Style::default().fg(Color::Yellow))
-            } else {
-                Block::bordered().title(section)
-            }
-        });
+        let flag_blocks = SECTIONS
+            .iter()
+            .enumerate()
+            .map(|(index, &section)| {
+                let border_style = if index == self.highlighted_section {
+                    Style::default().fg(Color::Yellow)
+                } else {
+                    Style::default()
+                };
+                Block::bordered().title(section).border_style(border_style)
+            })
+            .collect::<Vec<_>>();
         frame.render_widget(right_block, chunks[1]);
-        for (index, flag_block) in flag_blocks.enumerate() {
+        for (index, flag_block) in flag_blocks.iter().enumerate() {
             frame.render_widget(flag_block, flag_chunks[index]);
         }
+
+        render_host_discovery(
+            self,
+            frame,
+            flag_chunks[1].inner(Margin {
+                vertical: 1,
+                horizontal: 1,
+            }),
+        );
 
         let total_height = SECTIONS.len() * 10;
         self.scroll_state = self.scroll_state.content_length(total_height);
@@ -136,4 +154,3 @@ impl Tui {
         );
     }
 }
-
