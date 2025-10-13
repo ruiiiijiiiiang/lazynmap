@@ -7,8 +7,13 @@ use ratatui::{
 };
 use std::error::Error;
 
-use crate::widgets::checkbox::{Checkbox, CheckboxState};
-use crate::{scan::NmapScan, sections::host_discovery::render_host_discovery};
+use crate::{
+    scan::{
+        flags::{FlagValue, NmapFlag},
+        model::NmapScan,
+    },
+    tui::sections::host_discovery::render_host_discovery,
+};
 
 const SECTIONS: [&str; 10] = [
     "Target Specification",
@@ -23,19 +28,21 @@ const SECTIONS: [&str; 10] = [
     "Miscellaneous",
 ];
 
-pub struct Tui<'a> {
+pub struct App<'a> {
     pub scroll_state: ScrollbarState,
     pub scroll: usize,
     pub highlighted_section: usize,
+    pub highlighted_flag: NmapFlag,
     pub scan: &'a mut NmapScan,
 }
 
-impl<'a> Tui<'a> {
+impl<'a> App<'a> {
     pub fn new(scan: &'a mut NmapScan) -> Self {
         Self {
             scroll_state: ScrollbarState::default(),
             scroll: 0,
             highlighted_section: 0,
+            highlighted_flag: NmapFlag::ListScan,
             scan,
         }
     }
@@ -82,6 +89,19 @@ impl<'a> Tui<'a> {
                         // TODO: fix scroll
                         self.scroll = self.scroll.saturating_sub(10);
                         self.scroll_state = self.scroll_state.position(self.scroll);
+                    }
+                    KeyCode::Char('l') | KeyCode::Right => {
+                        self.highlighted_flag = self.highlighted_flag.next();
+                    }
+                    KeyCode::Char('h') | KeyCode::Left => {
+                        self.highlighted_flag = self.highlighted_flag.prev();
+                    }
+                    KeyCode::Char(' ') => {
+                        let flag_value = self.highlighted_flag.get_flag_value(self.scan);
+                        match flag_value {
+                            FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
+                            _ => (),
+                        }
                     }
                     _ => {}
                 }

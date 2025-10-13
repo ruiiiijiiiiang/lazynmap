@@ -1,15 +1,13 @@
 use std::error::Error;
 
-mod scan;
-mod sections;
-mod tui;
-mod widgets;
+pub mod scan;
+pub mod tui;
 
-use scan::NmapScan;
-use tui::Tui;
+use scan::model::NmapScan;
+use tui::app::App;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut scan = NmapScan::new();
-    Tui::new(&mut scan).run()?;
+    App::new(&mut scan).run()?;
     Ok(())
 }

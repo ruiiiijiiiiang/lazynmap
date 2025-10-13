@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use crate::scan::{
+use crate::scan::model::{
     EvasionSpoofing, HostDiscovery, MiscOptions, NmapScan, OsDetection, OutputOptions,
     PortSpecification, ScanTechnique, ScriptScan, SctpScanType, ServiceDetection,
     TimingPerformance,
@@ -514,7 +514,7 @@ impl NmapCommandBuilder {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::scan::TimingTemplate;
+    use crate::scan::model::TimingTemplate;
 
     use super::*;
 
