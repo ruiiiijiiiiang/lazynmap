@@ -3,7 +3,7 @@ use std::fmt::Write;
 use crate::scan::model::{
     EvasionSpoofing, HostDiscovery, MiscOptions, NmapScan, OsDetection, OutputOptions,
     PortSpecification, ScanTechnique, ScriptScan, SctpScanType, ServiceDetection,
-    TimingPerformance,
+    TargetSpecification, TimingPerformance,
 };
 
 /// Builder for converting NmapScan structs into command strings
@@ -45,7 +45,7 @@ impl NmapCommandBuilder {
         Self::build_misc(&mut cmd, &scan.misc);
 
         // Target specification (at the end)
-        Self::build_target_specification(&mut cmd, scan);
+        Self::build_target_specification(&mut cmd, &scan.target_specification);
 
         cmd
     }
@@ -459,22 +459,22 @@ impl NmapCommandBuilder {
         }
     }
 
-    fn build_target_specification(cmd: &mut String, scan: &NmapScan) {
-        if let Some(ref input_file) = scan.input_file {
+    fn build_target_specification(cmd: &mut String, ts: &TargetSpecification) {
+        if let Some(ref input_file) = ts.input_file {
             write!(cmd, " -iL {}", Self::quote_path(input_file)).ok();
         }
-        if let Some(random_targets) = scan.random_targets {
+        if let Some(random_targets) = ts.random_targets {
             write!(cmd, " -iR {}", random_targets).ok();
         }
-        if !scan.exclude.is_empty() {
-            write!(cmd, " --exclude {}", scan.exclude.join(",")).ok();
+        if !ts.exclude.is_empty() {
+            write!(cmd, " --exclude {}", ts.exclude.join(",")).ok();
         }
-        if let Some(ref exclude_file) = scan.exclude_file {
+        if let Some(ref exclude_file) = ts.exclude_file {
             write!(cmd, " --exclude-file {}", Self::quote_path(exclude_file)).ok();
         }
 
         // Add targets at the end
-        for target in &scan.targets {
+        for target in &ts.targets {
             write!(cmd, " {}", Self::quote_if_needed(target)).ok();
         }
     }
@@ -521,7 +521,7 @@ mod tests {
     #[test]
     fn test_basic_scan() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["192.168.1.1".to_string()];
+        scan.target_specification.targets = vec!["192.168.1.1".to_string()];
         scan.scan_technique = ScanTechnique::Syn;
         scan.ports.ports = Some("80,443".to_string());
 
@@ -534,7 +534,7 @@ mod tests {
     #[test]
     fn test_timing_template() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["scanme.nmap.org".to_string()];
+        scan.target_specification.targets = vec!["scanme.nmap.org".to_string()];
         scan.timing.template = Some(TimingTemplate::Aggressive);
 
         let cmd = NmapCommandBuilder::build(&scan);
@@ -545,7 +545,7 @@ mod tests {
     #[test]
     fn test_os_detection() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["192.168.1.1".to_string()];
+        scan.target_specification.targets = vec!["192.168.1.1".to_string()];
         scan.os_detection.enabled = true;
         scan.os_detection.guess = true;
 
@@ -557,7 +557,7 @@ mod tests {
     #[test]
     fn test_service_detection() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["example.com".to_string()];
+        scan.target_specification.targets = vec!["example.com".to_string()];
         scan.service_detection.enabled = true;
         scan.service_detection.intensity = Some(9);
 
@@ -569,7 +569,7 @@ mod tests {
     #[test]
     fn test_script_scan() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["192.168.1.1".to_string()];
+        scan.target_specification.targets = vec!["192.168.1.1".to_string()];
         scan.script_scan.scripts = vec!["vuln".to_string(), "exploit".to_string()];
 
         let cmd = NmapCommandBuilder::build(&scan);
@@ -579,7 +579,7 @@ mod tests {
     #[test]
     fn test_verbose_and_debug() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["192.168.1.1".to_string()];
+        scan.target_specification.targets = vec!["192.168.1.1".to_string()];
         scan.output.verbose = 2;
         scan.output.debug = 3;
 
@@ -591,7 +591,7 @@ mod tests {
     #[test]
     fn test_complex_scan() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["192.168.1.0/24".to_string()];
+        scan.target_specification.targets = vec!["192.168.1.0/24".to_string()];
         scan.scan_technique = ScanTechnique::Syn;
         scan.host_discovery.skip_port_scan = true;
         scan.ports.ports = Some("-".to_string());
@@ -612,7 +612,7 @@ mod tests {
     #[test]
     fn test_quoting() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["192.168.1.1".to_string()];
+        scan.target_specification.targets = vec!["192.168.1.1".to_string()];
         scan.evasion.data_string = Some("test data with spaces".to_string());
 
         let cmd = NmapCommandBuilder::build(&scan);
@@ -622,7 +622,7 @@ mod tests {
     #[test]
     fn test_host_discovery_flags() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["192.168.1.0/24".to_string()];
+        scan.target_specification.targets = vec!["192.168.1.0/24".to_string()];
         scan.host_discovery.list_scan = true;
         scan.host_discovery.ping_scan = true;
         scan.host_discovery.syn_discovery = vec![80, 443];
@@ -645,7 +645,7 @@ mod tests {
     #[test]
     fn test_port_specification_flags() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["localhost".to_string()];
+        scan.target_specification.targets = vec!["localhost".to_string()];
         scan.ports.fast_mode = true;
         scan.ports.consecutive_ports = true;
         scan.ports.top_ports = Some(100);
@@ -662,7 +662,7 @@ mod tests {
     #[test]
     fn test_evasion_flags() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["10.0.0.1".to_string()];
+        scan.target_specification.targets = vec!["10.0.0.1".to_string()];
         scan.evasion.fragment_packets = true;
         scan.evasion.mtu = Some(16);
         scan.evasion.decoys = vec!["decoy1".to_string(), "ME".to_string(), "decoy2".to_string()];
@@ -683,7 +683,7 @@ mod tests {
     #[test]
     fn test_output_flags() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["scanme.nmap.org".to_string()];
+        scan.target_specification.targets = vec!["scanme.nmap.org".to_string()];
         scan.output.normal = Some(PathBuf::from("output.nmap"));
         scan.output.grepable = Some(PathBuf::from("output.gnmap"));
         scan.output.all_formats = Some("all_output".to_string());
@@ -702,7 +702,7 @@ mod tests {
     #[test]
     fn test_misc_flags() {
         let mut scan = NmapScan::new();
-        scan.targets = vec!["example.com".to_string()];
+        scan.target_specification.targets = vec!["example.com".to_string()];
         scan.misc.ipv6 = true;
         scan.misc.aggressive = true;
         scan.misc.no_resolve = true;

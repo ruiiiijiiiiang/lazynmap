@@ -8,6 +8,6 @@ use tui::app::App;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut scan = NmapScan::new();
-    App::new(&mut scan).run()?;
+    App::new(&mut scan).start()?;
     Ok(())
 }

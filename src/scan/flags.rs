@@ -1,38 +1,39 @@
 use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumIter};
+use strum_macros::{Display, EnumIter, EnumMessage};
 
 use crate::scan::model::NmapScan;
 
-#[derive(Debug, Display, Clone, Copy, Eq, Hash, PartialEq, EnumIter)]
+#[derive(Debug, Display, Clone, Copy, Eq, Hash, PartialEq, EnumIter, EnumMessage)]
 pub enum NmapFlag {
+    #[strum(
+        to_string = "Targets (-T)",
+        message = "Hostnames, IP addresses, networks, etc"
+    )]
+    Targets,
+    #[strum(to_string = "List scan (-sL)")]
     ListScan,
+    #[strum(to_string = "Ping scan (-sn)")]
     PingScan,
+    #[strum(to_string = "Skip port scan (-Pn)")]
     SkipPortScan,
+    #[strum(to_string = "ICMP echo (-PE)")]
     IcmpEcho,
+    #[strum(to_string = "ICMP timestamp (-PP)")]
     IcmpTimestamp,
+    #[strum(to_string = "ICMP netmask (-PM)")]
     IcmpNetmask,
+    #[strum(to_string = "System DNS (--system-dns)")]
     SystemDns,
+    #[strum(to_string = "Traceroute (--traceroute)")]
     Traceroute,
 }
 
 pub enum FlagValue<'a> {
     Bool(&'a mut bool),
+    VecString(&'a mut Vec<String>),
 }
 
 impl NmapFlag {
-    pub fn to_label(&self) -> &'static str {
-        match self {
-            NmapFlag::ListScan => "List scan (-sL)",
-            NmapFlag::PingScan => "Ping scan (-sn)",
-            NmapFlag::SkipPortScan => "Skip port scan (-Pn)",
-            NmapFlag::IcmpEcho => "ICMP echo (-PE)",
-            NmapFlag::IcmpTimestamp => "ICMP timestamp (-PP)",
-            NmapFlag::IcmpNetmask => "ICMP netmask (-PM)",
-            NmapFlag::SystemDns => "System DNS (--system-dns)",
-            NmapFlag::Traceroute => "Traceroute (--traceroute)",
-        }
-    }
-
     pub fn get_flag_value<'a>(&self, scan: &'a mut NmapScan) -> FlagValue<'a> {
         match self {
             NmapFlag::ListScan => FlagValue::Bool(&mut scan.host_discovery.list_scan),
@@ -43,6 +44,7 @@ impl NmapFlag {
             NmapFlag::IcmpNetmask => FlagValue::Bool(&mut scan.host_discovery.icmp_netmask),
             NmapFlag::SystemDns => FlagValue::Bool(&mut scan.host_discovery.system_dns),
             NmapFlag::Traceroute => FlagValue::Bool(&mut scan.host_discovery.traceroute),
+            NmapFlag::Targets => FlagValue::VecString(&mut scan.target_specification.targets),
         }
     }
 
@@ -58,5 +60,9 @@ impl NmapFlag {
         let index = all_flags.iter().position(|f| f == self).unwrap();
         let prev_index = (index + all_flags.len() - 1) % all_flags.len();
         all_flags[prev_index]
+    }
+
+    pub fn first() -> Self {
+        NmapFlag::iter().next().unwrap()
     }
 }

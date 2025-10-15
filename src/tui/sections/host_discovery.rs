@@ -1,7 +1,6 @@
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Flex, Layout, Rect},
-    style::{Color, Style},
 };
 
 use crate::{
@@ -68,9 +67,12 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
 }
 
 fn render_checkbox(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: Rect) {
-    let FlagValue::Bool(flag_value) = flag.get_flag_value(app.scan);
+    let FlagValue::Bool(flag_value) = flag.get_flag_value(app.scan) else {
+        panic!()
+    };
     let mut state = CheckboxState::new(*flag_value);
-    state.set_focused(app.highlighted_flag == flag);
-    let checkbox = Checkbox::new().label(flag.to_label());
+    state.set_focused(app.focused_flag == flag);
+    let label = flag.to_string();
+    let checkbox = Checkbox::new().label(label.as_str());
     frame.render_stateful_widget(checkbox, area, &mut state);
 }

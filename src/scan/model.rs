@@ -5,11 +5,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Default)]
 pub struct NmapScan {
     // Target specification
-    pub targets: Vec<String>,
-    pub input_file: Option<PathBuf>,
-    pub random_targets: Option<u32>,
-    pub exclude: Vec<String>,
-    pub exclude_file: Option<PathBuf>,
+    pub target_specification: TargetSpecification,
 
     // Host discovery
     pub host_discovery: HostDiscovery,
@@ -40,6 +36,15 @@ pub struct NmapScan {
 
     // Miscellaneous options
     pub misc: MiscOptions,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TargetSpecification {
+    pub targets: Vec<String>,
+    pub input_file: Option<PathBuf>,
+    pub random_targets: Option<u32>,
+    pub exclude: Vec<String>,
+    pub exclude_file: Option<PathBuf>,
 }
 
 /// Host discovery options
@@ -228,13 +233,5 @@ impl NmapScan {
     /// Creates a new NmapScan with default values
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Creates a new NmapScan with specified targets
-    pub fn with_targets(targets: Vec<String>) -> Self {
-        NmapScan {
-            targets,
-            ..Default::default()
-        }
     }
 }

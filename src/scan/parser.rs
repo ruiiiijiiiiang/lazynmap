@@ -49,7 +49,7 @@ impl NmapParser {
                 Self::parse_flag(&mut scan, token, &mut iter)?;
             } else {
                 // Target specification
-                scan.targets.push(token.to_string());
+                scan.target_specification.targets.push(token.to_string());
             }
         }
 
@@ -95,19 +95,23 @@ impl NmapParser {
     ) -> Result<(), ParseError> {
         match flag {
             // Target specification
-            "-iL" => scan.input_file = Some(PathBuf::from(Self::get_next_value(iter, flag)?)),
+            "-iL" => {
+                scan.target_specification.input_file =
+                    Some(PathBuf::from(Self::get_next_value(iter, flag)?))
+            }
             "-iR" => {
-                scan.random_targets =
+                scan.target_specification.random_targets =
                     Some(Self::parse_number(Self::get_next_value(iter, flag)?, flag)?)
             }
             "--exclude" => {
-                scan.exclude = Self::get_next_value(iter, flag)?
+                scan.target_specification.exclude = Self::get_next_value(iter, flag)?
                     .split(',')
                     .map(String::from)
                     .collect()
             }
             "--exclude-file" => {
-                scan.exclude_file = Some(PathBuf::from(Self::get_next_value(iter, flag)?))
+                scan.target_specification.exclude_file =
+                    Some(PathBuf::from(Self::get_next_value(iter, flag)?))
             }
 
             // Host discovery
@@ -449,7 +453,7 @@ mod tests {
         let result = NmapParser::parse("nmap -sS -p 80,443 192.168.1.1");
         assert!(result.is_ok());
         let scan = result.unwrap();
-        assert_eq!(scan.targets, vec!["192.168.1.1"]);
+        assert_eq!(scan.target_specification.targets, vec!["192.168.1.1"]);
         assert!(matches!(scan.scan_technique, ScanTechnique::Syn));
         assert_eq!(scan.ports.ports, Some("80,443".to_string()));
     }
@@ -499,7 +503,7 @@ mod tests {
         assert!(scan.host_discovery.list_scan);
         assert!(scan.host_discovery.ping_scan);
         assert!(scan.host_discovery.skip_port_scan);
-        assert_eq!(scan.targets, vec!["192.168.1.0/24"]);
+        assert_eq!(scan.target_specification.targets, vec!["192.168.1.0/24"]);
     }
 
     #[test]
@@ -569,6 +573,6 @@ mod tests {
         ));
         assert_eq!(scan.timing.min_rate, Some(1000));
         assert_eq!(scan.output.all_formats, Some("full_scan".to_string()));
-        assert_eq!(scan.targets, vec!["192.168.1.1"]);
+        assert_eq!(scan.target_specification.targets, vec!["192.168.1.1"]);
     }
 }

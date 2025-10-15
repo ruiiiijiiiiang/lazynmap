@@ -2,8 +2,7 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Style},
-    text::Span,
-    widgets::{StatefulWidget, Widget},
+    widgets::StatefulWidget,
 };
 
 /// State for the RadioGroup widget
