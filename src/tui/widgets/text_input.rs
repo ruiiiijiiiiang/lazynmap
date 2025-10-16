@@ -4,7 +4,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget},
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -41,7 +41,7 @@ pub enum InputValue {
 }
 
 impl InputWidget {
-    pub fn render(&self, area: Rect, buf: &mut Buffer, focused: bool, editing: bool) {
+    pub fn render(&mut self, area: Rect, buf: &mut Buffer, focused: bool, editing: bool) {
         match self {
             InputWidget::String(input) => input.render(area, buf, focused, editing),
             InputWidget::Int(input) => input.render(area, buf, focused, editing),
@@ -49,6 +49,12 @@ impl InputWidget {
             InputWidget::VecString(input) => input.render(area, buf, focused, editing),
             InputWidget::VecInt(input) => input.render(area, buf, focused, editing),
             InputWidget::Path(input) => input.render(area, buf, focused, editing),
+        }
+    }
+
+    pub fn render_dropdown_overlay(&self, buf: &mut Buffer) {
+        if let InputWidget::Path(input) = self {
+            input.render_dropdown_overlay(buf);
         }
     }
 
@@ -585,7 +591,6 @@ impl PathCompleter {
         self.selected_idx = 0;
 
         if input.is_empty() {
-            // Show current directory contents
             if let Ok(entries) = fs::read_dir(".") {
                 self.suggestions = entries
                     .filter_map(|e| e.ok())
@@ -598,12 +603,22 @@ impl PathCompleter {
 
         let path = Path::new(input);
         let (dir, prefix) = if input.ends_with('/') || input.ends_with('\\') {
-            (path, "")
+            (path.to_path_buf(), "")
         } else {
-            (
-                path.parent().unwrap_or(Path::new(".")),
-                path.file_name().and_then(|s| s.to_str()).unwrap_or(""),
-            )
+            let parent = path.parent();
+            let prefix = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+
+            let dir = if let Some(p) = parent {
+                if p.as_os_str().is_empty() {
+                    PathBuf::from(".")
+                } else {
+                    p.to_path_buf()
+                }
+            } else {
+                PathBuf::from(".")
+            };
+
+            (dir, prefix)
         };
 
         if let Ok(entries) = fs::read_dir(dir) {
@@ -664,6 +679,7 @@ pub struct CompletingInput {
     completer: PathCompleter,
     mode: CompletionMode,
     max_dropdown_height: usize,
+    render_area: Option<Rect>,
 }
 
 impl CompletingInput {
@@ -672,7 +688,8 @@ impl CompletingInput {
             input: TextInput::new(PathBufParser).with_placeholder("Enter path..."),
             completer: PathCompleter::new(),
             mode: CompletionMode::Editing,
-            max_dropdown_height: 10,
+            max_dropdown_height: 20,
+            render_area: None,
         }
     }
 
@@ -769,40 +786,57 @@ impl CompletingInput {
         }
     }
 
-    pub fn render(&self, area: Rect, buf: &mut Buffer, focused: bool, editing: bool) {
-        let has_label = self.input.label.is_some();
-        let label_height = if has_label { 1 } else { 0 };
+    pub fn render(&mut self, area: Rect, buf: &mut Buffer, focused: bool, editing: bool) {
+        self.render_area = Some(area);
 
-        let input_height = 3 + label_height;
-        let available_for_dropdown = area.height.saturating_sub(input_height);
+        if editing && !self.completer.has_suggestions() {
+            self.completer.update_suggestions(self.input.content());
+        }
 
-        let input_area = Rect {
-            x: area.x,
-            y: area.y,
-            width: area.width,
-            height: input_height.min(area.height),
+        self.input.render(area, buf, focused, editing);
+    }
+
+    pub fn render_dropdown_overlay(&self, buf: &mut Buffer) {
+        if !self.completer.has_suggestions() {
+            return;
+        }
+        let Some(area) = self.render_area else {
+            return;
         };
 
-        // Render the input field
-        self.input.render(input_area, buf, focused, editing);
+        let input_height = 3;
+        let dropdown_items = self
+            .completer
+            .suggestions
+            .len()
+            .min(self.max_dropdown_height);
+        let dropdown_height = dropdown_items as u16 + 2;
 
-        // Render dropdown ONLY if editing and has suggestions
-        if editing && self.completer.has_suggestions() && available_for_dropdown > 0 {
-            let dropdown_height = (self
-                .completer
-                .suggestions
-                .len()
-                .min(self.max_dropdown_height) as u16
-                + 2)
-            .min(available_for_dropdown);
+        let space_below = buf.area().height.saturating_sub(area.y + input_height);
+        let space_above = area.y;
 
+        let offset_x = self.input.label.as_deref().unwrap_or("").len() as u16 + 2;
+        let (dropdown_y, actual_height) = if space_below >= dropdown_height {
+            (area.y + input_height, dropdown_height)
+        } else if space_above >= dropdown_height {
+            (area.y.saturating_sub(dropdown_height), dropdown_height)
+        } else if space_below >= space_above {
+            (area.y + input_height, space_below.min(dropdown_height))
+        } else {
+            let usable_height = space_above.min(dropdown_height);
+            (area.y.saturating_sub(usable_height), usable_height)
+        };
+
+        // Only render if we have at least 3 lines (borders + 1 item)
+        if actual_height >= 3 {
             let dropdown_area = Rect {
-                x: area.x,
-                y: area.y + input_height,
-                width: area.width,
-                height: dropdown_height,
+                x: area.x + offset_x,
+                y: dropdown_y,
+                width: area.width - offset_x,
+                height: actual_height,
             };
 
+            Clear.render(dropdown_area, buf);
             self.render_dropdown(dropdown_area, buf);
         }
     }
@@ -852,6 +886,7 @@ impl CompletingInput {
         self.input.clear();
         self.completer.suggestions.clear();
         self.mode = CompletionMode::Editing;
+        self.render_area = None;
     }
 
     pub fn set_content(&mut self, content: String) {

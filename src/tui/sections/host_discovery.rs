@@ -31,7 +31,7 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
         ])
         .split(row_chunks[0]);
 
-    for (index, flag) in [
+    for (index, &flag) in [
         NmapFlag::ListScan,
         NmapFlag::PingScan,
         NmapFlag::SkipPortScan,
@@ -39,7 +39,7 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     .iter()
     .enumerate()
     {
-        render_checkbox(app, *flag, frame, row_0_col_chunks[index]);
+        render_checkbox(app, flag, frame, row_0_col_chunks[index]);
     }
 
     let row_1_col_chunks = Layout::default()
@@ -53,7 +53,7 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
         ])
         .split(row_chunks[1]);
 
-    for (index, flag) in [
+    for (index, &flag) in [
         NmapFlag::IcmpEcho,
         NmapFlag::IcmpTimestamp,
         NmapFlag::IcmpNetmask,
@@ -62,7 +62,7 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     .iter()
     .enumerate()
     {
-        render_checkbox(app, *flag, frame, row_1_col_chunks[index]);
+        render_checkbox(app, flag, frame, row_1_col_chunks[index]);
     }
 }
 

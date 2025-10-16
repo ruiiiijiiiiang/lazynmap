@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter, EnumMessage};
 
@@ -6,10 +7,15 @@ use crate::scan::model::NmapScan;
 #[derive(Debug, Display, Clone, Copy, Eq, Hash, PartialEq, EnumIter, EnumMessage)]
 pub enum NmapFlag {
     #[strum(
-        to_string = "Targets (-T)",
+        to_string = "Targets",
         message = "Hostnames, IP addresses, networks, etc"
     )]
     Targets,
+    #[strum(
+        to_string = "Input file (-iL)",
+        message = "Input from list of hosts/networks"
+    )]
+    InputFile,
     #[strum(to_string = "List scan (-sL)")]
     ListScan,
     #[strum(to_string = "Ping scan (-sn)")]
@@ -31,11 +37,14 @@ pub enum NmapFlag {
 pub enum FlagValue<'a> {
     Bool(&'a mut bool),
     VecString(&'a mut Vec<String>),
+    Path(&'a mut Option<PathBuf>),
 }
 
 impl NmapFlag {
     pub fn get_flag_value<'a>(&self, scan: &'a mut NmapScan) -> FlagValue<'a> {
         match self {
+            NmapFlag::Targets => FlagValue::VecString(&mut scan.target_specification.targets),
+            NmapFlag::InputFile => FlagValue::Path(&mut scan.target_specification.input_file),
             NmapFlag::ListScan => FlagValue::Bool(&mut scan.host_discovery.list_scan),
             NmapFlag::PingScan => FlagValue::Bool(&mut scan.host_discovery.ping_scan),
             NmapFlag::SkipPortScan => FlagValue::Bool(&mut scan.host_discovery.skip_port_scan),
@@ -44,7 +53,6 @@ impl NmapFlag {
             NmapFlag::IcmpNetmask => FlagValue::Bool(&mut scan.host_discovery.icmp_netmask),
             NmapFlag::SystemDns => FlagValue::Bool(&mut scan.host_discovery.system_dns),
             NmapFlag::Traceroute => FlagValue::Bool(&mut scan.host_discovery.traceroute),
-            NmapFlag::Targets => FlagValue::VecString(&mut scan.target_specification.targets),
         }
     }
 

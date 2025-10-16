@@ -24,13 +24,15 @@ pub fn render_target_specification(app: &mut App, frame: &mut Frame, area: Rect)
     let row_0_col_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .flex(Flex::SpaceBetween)
-        .constraints([Constraint::Length(50), Constraint::Length(40)])
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(row_chunks[0]);
 
-    app.input_map.get(&NmapFlag::Targets).unwrap().render(
-        row_0_col_chunks[0],
-        frame.buffer_mut(),
-        app.focused_flag == NmapFlag::Targets,
-        app.editing,
-    );
+    for (index, &flag) in [NmapFlag::Targets, NmapFlag::InputFile].iter().enumerate() {
+        app.input_map.get_mut(&flag).unwrap().render(
+            row_0_col_chunks[index],
+            frame.buffer_mut(),
+            app.focused_flag == flag,
+            app.editing_flag == Some(flag),
+        );
+    }
 }

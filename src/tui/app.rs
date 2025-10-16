@@ -9,6 +9,7 @@ use strum::EnumMessage;
 
 use crate::{
     scan::{
+        builder::NmapCommandBuilder,
         flags::{FlagValue, NmapFlag},
         model::NmapScan,
     },
@@ -17,7 +18,9 @@ use crate::{
             host_discovery::render_host_discovery,
             target_specification::render_target_specification,
         },
-        widgets::text_input::{EventResult, InputValue, InputWidget, TextInput, VecStringParser},
+        widgets::text_input::{
+            CompletingInput, EventResult, InputValue, InputWidget, TextInput, VecStringParser,
+        },
     },
 };
 
@@ -37,9 +40,9 @@ const SECTIONS: [(&str, u16); 10] = [
 pub struct App<'a> {
     pub scan: &'a mut NmapScan,
     pub input_map: HashMap<NmapFlag, InputWidget>,
-    pub editing: bool,
     pub focused_section: usize,
     pub focused_flag: NmapFlag,
+    pub editing_flag: Option<NmapFlag>,
 
     scroll_state: ScrollbarState,
     scroll: u16,
@@ -56,12 +59,18 @@ impl<'a> App<'a> {
                 .with_placeholder(flag.get_message().unwrap());
             input_map.insert(*flag, InputWidget::VecString(target_input));
         }
+        for flag in [NmapFlag::InputFile].iter() {
+            let target_input = CompletingInput::new()
+                .with_label(flag.to_string())
+                .with_placeholder(flag.get_message().unwrap());
+            input_map.insert(*flag, InputWidget::Path(target_input));
+        }
         Self {
             scan,
             input_map,
-            editing: false,
             focused_section: 0,
             focused_flag: NmapFlag::first(),
+            editing_flag: None,
 
             scroll_state: ScrollbarState::new(total_height.into()),
             scroll: 0,
@@ -97,9 +106,14 @@ impl<'a> App<'a> {
 
     fn draw(&mut self, frame: &mut Frame) {
         let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(15), Constraint::Length(3)])
+            .split(frame.area());
+
+        let top_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Length(25), Constraint::Min(0)])
-            .split(frame.area());
+            .split(chunks[0]);
 
         let left_block = Block::bordered().title("Sections");
         let sections = SECTIONS
@@ -114,11 +128,11 @@ impl<'a> App<'a> {
             })
             .collect::<Vec<_>>();
         let section_paragraph = Paragraph::new(sections).block(left_block);
-        frame.render_widget(section_paragraph, chunks[0]);
+        frame.render_widget(section_paragraph, top_chunks[0]);
 
         let right_block = Block::bordered().title("Options");
-        let right_area = right_block.inner(chunks[1]);
-        frame.render_widget(right_block, chunks[1]);
+        let right_area = right_block.inner(top_chunks[1]);
+        frame.render_widget(right_block, top_chunks[1]);
 
         let right_chunks =
             Layout::horizontal([Constraint::Min(0), Constraint::Length(1)]).split(right_area);
@@ -189,14 +203,24 @@ impl<'a> App<'a> {
 
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight),
-            chunks[1],
+            top_chunks[1],
             &mut self.scroll_state,
         );
+
+        let footer_block = Block::bordered().title(Line::from("Nmap command").centered());
+        let nmap_command = Paragraph::new(NmapCommandBuilder::build(self.scan)).block(footer_block);
+        frame.render_widget(nmap_command, chunks[1]);
+
+        if let Some(flag) = self.editing_flag
+            && let Some(input) = self.input_map.get(&flag)
+        {
+            input.render_dropdown_overlay(frame.buffer_mut());
+        }
     }
 
     fn handle_event(&mut self, event: Event) -> Result<(), Box<dyn Error>> {
         if let Event::Key(key) = event {
-            if !self.editing {
+            if self.editing_flag.is_none() {
                 match key.code {
                     KeyCode::Char('q') => {
                         self.running = false;
@@ -217,7 +241,9 @@ impl<'a> App<'a> {
                         let flag_value = self.focused_flag.get_flag_value(self.scan);
                         match flag_value {
                             FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
-                            FlagValue::VecString(_flag_value) => self.editing = true,
+                            FlagValue::VecString(_) | FlagValue::Path(_) => {
+                                self.editing_flag = Some(self.focused_flag)
+                            }
                         }
                     }
                     _ => {}
@@ -231,19 +257,23 @@ impl<'a> App<'a> {
                 {
                     EventResult::Consumed => (),
                     EventResult::Submit(value) => {
+                        let flag_value = self.focused_flag.get_flag_value(self.scan);
                         match value {
                             InputValue::VecString(value) => {
-                                let flag_value = self.focused_flag.get_flag_value(self.scan);
                                 if let FlagValue::VecString(flag_value) = flag_value {
                                     *flag_value = value;
                                 }
-                                eprintln!("{:?}", self.scan.target_specification.targets);
+                            }
+                            InputValue::Path(value) => {
+                                if let FlagValue::Path(flag_value) = flag_value {
+                                    *flag_value = Some(value);
+                                }
                             }
                             _ => {}
                         }
-                        self.editing = false;
+                        self.editing_flag = None
                     }
-                    EventResult::Cancel => self.editing = false,
+                    EventResult::Cancel => self.editing_flag = None,
                     _ => {}
                 };
             }
