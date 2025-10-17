@@ -11,12 +11,12 @@ use crate::{
     scan::{
         builder::NmapCommandBuilder,
         flags::{FlagValue, NmapFlag},
-        model::NmapScan,
+        model::{NmapScan, TimingTemplate},
     },
     tui::{
         sections::{
             host_discovery::render_host_discovery,
-            target_specification::render_target_specification,
+            target_specification::render_target_specification, timing::render_timing,
         },
         widgets::text_input::{
             CompletingInput, EventResult, InputValue, InputWidget, TextInput, VecStringParser,
@@ -43,6 +43,7 @@ pub struct App<'a> {
     pub focused_section: usize,
     pub focused_flag: NmapFlag,
     pub editing_flag: Option<NmapFlag>,
+    pub focused_radio_index: Option<usize>,
 
     scroll_state: ScrollbarState,
     scroll: u16,
@@ -71,6 +72,7 @@ impl<'a> App<'a> {
             focused_section: 0,
             focused_flag: NmapFlag::first(),
             editing_flag: None,
+            focused_radio_index: None,
 
             scroll_state: ScrollbarState::new(total_height.into()),
             scroll: 0,
@@ -176,26 +178,30 @@ impl<'a> App<'a> {
                     .border_style(border_style);
                 frame.render_widget(flag_block, visible_area);
                 match index {
-                    0 => {
-                        render_target_specification(
-                            self,
-                            frame,
-                            visible_area.inner(Margin {
-                                vertical: 1,
-                                horizontal: 1,
-                            }),
-                        );
-                    }
-                    1 => {
-                        render_host_discovery(
-                            self,
-                            frame,
-                            visible_area.inner(Margin {
-                                vertical: 1,
-                                horizontal: 1,
-                            }),
-                        );
-                    }
+                    0 => render_target_specification(
+                        self,
+                        frame,
+                        visible_area.inner(Margin {
+                            vertical: 1,
+                            horizontal: 1,
+                        }),
+                    ),
+                    1 => render_host_discovery(
+                        self,
+                        frame,
+                        visible_area.inner(Margin {
+                            vertical: 1,
+                            horizontal: 1,
+                        }),
+                    ),
+                    2 => render_timing(
+                        self,
+                        frame,
+                        visible_area.inner(Margin {
+                            vertical: 1,
+                            horizontal: 1,
+                        }),
+                    ),
                     _ => (),
                 }
             }
@@ -219,36 +225,9 @@ impl<'a> App<'a> {
     }
 
     fn handle_event(&mut self, event: Event) -> Result<(), Box<dyn Error>> {
+        let flag_value = self.focused_flag.get_flag_value(self.scan);
         if let Event::Key(key) = event {
-            if self.editing_flag.is_none() {
-                match key.code {
-                    KeyCode::Char('q') => {
-                        self.running = false;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        self.scroll_down();
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        self.scroll_up();
-                    }
-                    KeyCode::Char('l') | KeyCode::Right => {
-                        self.focused_flag = self.focused_flag.next();
-                    }
-                    KeyCode::Char('h') | KeyCode::Left => {
-                        self.focused_flag = self.focused_flag.prev();
-                    }
-                    KeyCode::Enter | KeyCode::Char(' ') => {
-                        let flag_value = self.focused_flag.get_flag_value(self.scan);
-                        match flag_value {
-                            FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
-                            FlagValue::VecString(_) | FlagValue::Path(_) => {
-                                self.editing_flag = Some(self.focused_flag)
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            } else {
+            if self.editing_flag.is_some() {
                 match self
                     .input_map
                     .get_mut(&self.focused_flag)
@@ -257,7 +236,6 @@ impl<'a> App<'a> {
                 {
                     EventResult::Consumed => (),
                     EventResult::Submit(value) => {
-                        let flag_value = self.focused_flag.get_flag_value(self.scan);
                         match value {
                             InputValue::VecString(value) => {
                                 if let FlagValue::VecString(flag_value) = flag_value {
@@ -276,6 +254,68 @@ impl<'a> App<'a> {
                     EventResult::Cancel => self.editing_flag = None,
                     _ => {}
                 };
+            } else {
+                match key.code {
+                    KeyCode::Char('q') => {
+                        self.running = false;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        self.scroll_down();
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        self.scroll_up();
+                    }
+                    KeyCode::Char('l') | KeyCode::Right => {
+                        match (
+                            self.focused_radio_index,
+                            self.focused_flag.get_variant_count(),
+                        ) {
+                            (Some(index), Some(count)) if index + 1 < count => {
+                                self.focused_radio_index = Some(index + 1);
+                            }
+                            _ => {
+                                self.focused_flag = self.focused_flag.next();
+                                if self.focused_flag.get_variant_count().is_some() {
+                                    self.focused_radio_index = Some(0);
+                                } else {
+                                    self.focused_radio_index = None;
+                                }
+                            }
+                        }
+                    }
+                    KeyCode::Char('h') | KeyCode::Left => match self.focused_radio_index {
+                        Some(index) if index > 0 => {
+                            self.focused_radio_index = Some(index - 1);
+                        }
+                        _ => {
+                            self.focused_flag = self.focused_flag.prev();
+                            if let Some(count) = self.focused_flag.get_variant_count() {
+                                self.focused_radio_index = Some(count.saturating_sub(1));
+                            } else {
+                                self.focused_radio_index = None;
+                            }
+                        }
+                    },
+                    KeyCode::Enter | KeyCode::Char(' ') => match flag_value {
+                        FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
+                        FlagValue::VecString(_) | FlagValue::Path(_) => {
+                            self.editing_flag = Some(self.focused_flag)
+                        }
+                        FlagValue::TimingTemplate(flag_value) => {
+                            *flag_value = self
+                                .focused_radio_index
+                                .and_then(TimingTemplate::from_index)
+                                .and_then(|new_val| {
+                                    if Some(new_val) == *flag_value {
+                                        None
+                                    } else {
+                                        Some(new_val)
+                                    }
+                                });
+                        }
+                    },
+                    _ => {}
+                }
             }
         }
         Ok(())

@@ -1,8 +1,8 @@
 use std::path::PathBuf;
-use strum::IntoEnumIterator;
+use strum::{EnumCount, IntoEnumIterator};
 use strum_macros::{Display, EnumIter, EnumMessage};
 
-use crate::scan::model::NmapScan;
+use crate::scan::model::{NmapScan, TimingTemplate};
 
 #[derive(Debug, Display, Clone, Copy, Eq, Hash, PartialEq, EnumIter, EnumMessage)]
 pub enum NmapFlag {
@@ -28,20 +28,23 @@ pub enum NmapFlag {
     IcmpTimestamp,
     #[strum(to_string = "ICMP netmask (-PM)")]
     IcmpNetmask,
-    #[strum(to_string = "System DNS (--system-dns)")]
-    SystemDns,
+    // #[strum(to_string = "System DNS (--system-dns)")]
+    // SystemDns,
     #[strum(to_string = "Traceroute (--traceroute)")]
     Traceroute,
+    #[strum(to_string = "Timing template")]
+    TimingTemplate,
 }
 
 pub enum FlagValue<'a> {
     Bool(&'a mut bool),
     VecString(&'a mut Vec<String>),
     Path(&'a mut Option<PathBuf>),
+    TimingTemplate(&'a mut Option<TimingTemplate>),
 }
 
 impl NmapFlag {
-    pub fn get_flag_value<'a>(&self, scan: &'a mut NmapScan) -> FlagValue<'a> {
+    pub fn get_flag_value<'a>(self, scan: &'a mut NmapScan) -> FlagValue<'a> {
         match self {
             NmapFlag::Targets => FlagValue::VecString(&mut scan.target_specification.targets),
             NmapFlag::InputFile => FlagValue::Path(&mut scan.target_specification.input_file),
@@ -51,8 +54,9 @@ impl NmapFlag {
             NmapFlag::IcmpEcho => FlagValue::Bool(&mut scan.host_discovery.icmp_echo),
             NmapFlag::IcmpTimestamp => FlagValue::Bool(&mut scan.host_discovery.icmp_timestamp),
             NmapFlag::IcmpNetmask => FlagValue::Bool(&mut scan.host_discovery.icmp_netmask),
-            NmapFlag::SystemDns => FlagValue::Bool(&mut scan.host_discovery.system_dns),
+            // NmapFlag::SystemDns => FlagValue::Bool(&mut scan.host_discovery.system_dns),
             NmapFlag::Traceroute => FlagValue::Bool(&mut scan.host_discovery.traceroute),
+            NmapFlag::TimingTemplate => FlagValue::TimingTemplate(&mut scan.timing.template),
         }
     }
 
@@ -72,5 +76,12 @@ impl NmapFlag {
 
     pub fn first() -> Self {
         NmapFlag::iter().next().unwrap()
+    }
+
+    pub fn get_variant_count(self) -> Option<usize> {
+        match self {
+            NmapFlag::TimingTemplate => Some(TimingTemplate::COUNT),
+            _ => None,
+        }
     }
 }

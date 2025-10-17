@@ -1,107 +1,12 @@
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
+    layout::{Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Style},
-    widgets::StatefulWidget,
 };
 
-/// State for the RadioGroup widget
 #[derive(Debug, Clone)]
-pub struct RadioGroupState {
-    selected: Option<usize>,
-    focused_index: Option<usize>,
-}
-
-impl RadioGroupState {
-    pub fn new() -> Self {
-        Self {
-            selected: None,
-            focused_index: None,
-        }
-    }
-
-    pub fn with_selected(selected: Option<usize>) -> Self {
-        Self {
-            selected,
-            focused_index: selected,
-        }
-    }
-
-    pub fn select(&mut self, index: usize) {
-        self.selected = Some(index);
-    }
-
-    pub fn deselect(&mut self) {
-        self.selected = None;
-    }
-
-    pub fn selected(&self) -> Option<usize> {
-        self.selected
-    }
-
-    pub fn is_selected(&self, index: usize) -> bool {
-        self.selected == Some(index)
-    }
-
-    pub fn focus(&mut self, index: usize) {
-        self.focused_index = Some(index);
-    }
-
-    pub fn unfocus(&mut self) {
-        self.focused_index = None;
-    }
-
-    pub fn focused_index(&self) -> Option<usize> {
-        self.focused_index
-    }
-
-    pub fn is_focused(&self, index: usize) -> bool {
-        self.focused_index == Some(index)
-    }
-
-    pub fn next(&mut self, max: usize) {
-        if max == 0 {
-            return;
-        }
-        self.focused_index = Some(match self.focused_index {
-            Some(i) => (i + 1) % max,
-            None => 0,
-        });
-    }
-
-    pub fn previous(&mut self, max: usize) {
-        if max == 0 {
-            return;
-        }
-        self.focused_index = Some(match self.focused_index {
-            Some(i) => {
-                if i == 0 {
-                    max - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => max - 1,
-        });
-    }
-
-    pub fn select_focused(&mut self) {
-        if let Some(focused) = self.focused_index {
-            self.selected = Some(focused);
-        }
-    }
-}
-
-impl Default for RadioGroupState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// A single radio button option
-#[derive(Debug, Clone)]
-pub struct RadioButton<'a> {
-    label: &'a str,
+pub struct RadioButton {
+    label: String,
     selected: bool,
     focused: bool,
     selected_style: Style,
@@ -110,28 +15,66 @@ pub struct RadioButton<'a> {
     focused_style: Style,
 }
 
-impl<'a> RadioButton<'a> {
-    fn new(
-        label: &'a str,
-        selected: bool,
-        focused: bool,
-        selected_style: Style,
-        unselected_style: Style,
-        label_style: Style,
-        focused_style: Style,
-    ) -> Self {
+impl RadioButton {
+    pub fn new(label: impl Into<String>) -> Self {
         Self {
-            label,
-            selected,
-            focused,
-            selected_style,
-            unselected_style,
-            label_style,
-            focused_style,
+            label: label.into(),
+            selected: false,
+            focused: false,
+            selected_style: Style::default().fg(Color::Green),
+            unselected_style: Style::default().fg(Color::Gray),
+            label_style: Style::default(),
+            focused_style: Style::default().fg(Color::Yellow),
         }
     }
 
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+    pub fn with_selected(mut self, selected: bool) -> Self {
+        self.selected = selected;
+        self
+    }
+
+    pub fn with_focused(mut self, focused: bool) -> Self {
+        self.focused = focused;
+        self
+    }
+
+    pub fn with_selected_style(mut self, style: Style) -> Self {
+        self.selected_style = style;
+        self
+    }
+
+    pub fn with_unselected_style(mut self, style: Style) -> Self {
+        self.unselected_style = style;
+        self
+    }
+
+    pub fn with_label_style(mut self, style: Style) -> Self {
+        self.label_style = style;
+        self
+    }
+
+    pub fn with_focused_style(mut self, style: Style) -> Self {
+        self.focused_style = style;
+        self
+    }
+
+    pub fn set_selected(&mut self, selected: bool) {
+        self.selected = selected;
+    }
+
+    pub fn set_focused(&mut self, focused: bool) {
+        self.focused = focused;
+    }
+
+    pub fn is_selected(&self) -> bool {
+        self.selected
+    }
+
+    pub fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    pub fn render(&self, area: Rect, buf: &mut Buffer) {
         if area.width < 3 || area.height < 1 {
             return;
         }
@@ -191,90 +134,154 @@ impl<'a> RadioButton<'a> {
     }
 }
 
-/// Radio button group widget
+impl Default for RadioButton {
+    fn default() -> Self {
+        Self::new("")
+    }
+}
+
+/// Radio button group that renders multiple radio buttons and ensures mutual exclusivity
 #[derive(Debug, Clone)]
-pub struct RadioGroup<'a> {
-    options: Vec<&'a str>,
+pub struct RadioGroup {
+    options: Vec<String>,
+    selected_index: Option<usize>,
+    focused_index: Option<usize>,
     selected_style: Style,
     unselected_style: Style,
     label_style: Style,
     focused_style: Style,
     spacing: u16,
+    orientation: Direction,
 }
 
-impl<'a> RadioGroup<'a> {
-    pub fn new(options: Vec<&'a str>) -> Self {
+impl RadioGroup {
+    pub fn new(options: Vec<impl Into<String>>) -> Self {
         Self {
-            options,
+            options: options.into_iter().map(|s| s.into()).collect(),
+            selected_index: None,
+            focused_index: None,
             selected_style: Style::default().fg(Color::Green),
             unselected_style: Style::default().fg(Color::Gray),
             label_style: Style::default(),
             focused_style: Style::default().fg(Color::Yellow),
             spacing: 1,
+            orientation: Direction::Horizontal,
         }
     }
 
-    pub fn selected_style(mut self, style: Style) -> Self {
+    pub fn with_selected(mut self, index: Option<usize>) -> Self {
+        self.selected_index = index;
+        self
+    }
+
+    pub fn with_focused(mut self, index: Option<usize>) -> Self {
+        self.focused_index = index;
+        self
+    }
+
+    pub fn with_selected_style(mut self, style: Style) -> Self {
         self.selected_style = style;
         self
     }
 
-    pub fn unselected_style(mut self, style: Style) -> Self {
+    pub fn with_unselected_style(mut self, style: Style) -> Self {
         self.unselected_style = style;
         self
     }
 
-    pub fn label_style(mut self, style: Style) -> Self {
+    pub fn with_label_style(mut self, style: Style) -> Self {
         self.label_style = style;
         self
     }
 
-    pub fn focused_style(mut self, style: Style) -> Self {
+    pub fn with_focused_style(mut self, style: Style) -> Self {
         self.focused_style = style;
         self
     }
 
-    pub fn spacing(mut self, spacing: u16) -> Self {
+    pub fn with_spacing(mut self, spacing: u16) -> Self {
         self.spacing = spacing;
         self
     }
-}
 
-impl<'a> StatefulWidget for RadioGroup<'a> {
-    type State = RadioGroupState;
+    pub fn with_orientation(mut self, orientation: Direction) -> Self {
+        self.orientation = orientation;
+        self
+    }
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if area.height < 1 || self.options.is_empty() {
+    pub fn set_selected(&mut self, index: Option<usize>) {
+        self.selected_index = index;
+    }
+
+    pub fn set_focused(&mut self, index: Option<usize>) {
+        self.focused_index = index;
+    }
+
+    pub fn select_focused(&mut self) {
+        self.selected_index = self.focused_index;
+    }
+
+    pub fn next_focus(&mut self) {
+        if self.options.is_empty() {
             return;
         }
+        self.focused_index = Some(match self.focused_index {
+            Some(i) => (i + 1) % self.options.len(),
+            None => 0,
+        });
+    }
 
-        let mut y = area.y;
-
-        for (index, option) in self.options.iter().enumerate() {
-            if y >= area.y + area.height {
-                break;
+    pub fn previous_focus(&mut self) {
+        if self.options.is_empty() {
+            return;
+        }
+        self.focused_index = Some(match self.focused_index {
+            Some(i) => {
+                if i == 0 {
+                    self.options.len() - 1
+                } else {
+                    i - 1
+                }
             }
+            None => self.options.len() - 1,
+        });
+    }
 
-            let radio_area = Rect {
-                x: area.x,
-                y,
-                width: area.width,
-                height: 1,
-            };
+    pub fn selected_index(&self) -> Option<usize> {
+        self.selected_index
+    }
 
-            let radio = RadioButton::new(
-                option,
-                state.is_selected(index),
-                state.is_focused(index),
-                self.selected_style,
-                self.unselected_style,
-                self.label_style,
-                self.focused_style,
-            );
+    pub fn focused_index(&self) -> Option<usize> {
+        self.focused_index
+    }
+
+    pub fn render(&self, area: Rect, buf: &mut Buffer) {
+        let constraints: Vec<Constraint> = match self.orientation {
+            Direction::Vertical => self.options.iter().map(|_| Constraint::Length(1)).collect(),
+            Direction::Horizontal => self
+                .options
+                .iter()
+                .map(|option| Constraint::Length(4 + option.len() as u16))
+                .collect(),
+        };
+
+        let layout = Layout::default()
+            .direction(self.orientation)
+            .constraints(constraints)
+            .flex(Flex::SpaceBetween)
+            .spacing(self.spacing)
+            .split(area);
+
+        for (index, (option, &radio_area)) in self.options.iter().zip(layout.iter()).enumerate() {
+            let radio = RadioButton::new(option)
+                .with_selected(self.selected_index == Some(index))
+                .with_focused(self.focused_index == Some(index))
+                .with_selected_style(self.selected_style)
+                .with_unselected_style(self.unselected_style)
+                .with_label_style(self.label_style)
+                .with_focused_style(self.focused_style);
 
             radio.render(radio_area, buf);
-
-            y += 1 + self.spacing;
         }
     }
 }
@@ -284,46 +291,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_radio_group_state() {
-        let mut state = RadioGroupState::new();
-        assert_eq!(state.selected(), None);
-        assert_eq!(state.focused_index(), None);
+    fn test_radio_button() {
+        let mut radio = RadioButton::new("Option");
+        assert!(!radio.is_selected());
 
-        state.select(1);
-        assert_eq!(state.selected(), Some(1));
-        assert!(state.is_selected(1));
-        assert!(!state.is_selected(0));
-
-        state.focus(2);
-        assert_eq!(state.focused_index(), Some(2));
-        assert!(state.is_focused(2));
-
-        state.select_focused();
-        assert_eq!(state.selected(), Some(2));
-        assert!(state.is_selected(2));
-        assert!(!state.is_selected(1));
-
-        state.deselect();
-        assert_eq!(state.selected(), None);
+        radio.set_selected(true);
+        assert!(radio.is_selected());
     }
 
     #[test]
-    fn test_navigation() {
-        let mut state = RadioGroupState::new();
+    fn test_radio_group() {
+        let mut group = RadioGroup::new(vec!["A", "B", "C"]);
+        assert_eq!(group.selected_index(), None);
 
-        state.next(3);
-        assert_eq!(state.focused_index(), Some(0));
+        group.set_focused(Some(1));
+        group.select_focused();
+        assert_eq!(group.selected_index(), Some(1));
 
-        state.next(3);
-        assert_eq!(state.focused_index(), Some(1));
+        group.next_focus();
+        assert_eq!(group.focused_index(), Some(2));
 
-        state.next(3);
-        assert_eq!(state.focused_index(), Some(2));
-
-        state.next(3);
-        assert_eq!(state.focused_index(), Some(0));
-
-        state.previous(3);
-        assert_eq!(state.focused_index(), Some(2));
+        group.previous_focus();
+        assert_eq!(group.focused_index(), Some(1));
     }
 }

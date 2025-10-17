@@ -125,11 +125,6 @@ impl NmapCommandBuilder {
             ScanTechnique::Ftp(relay) => {
                 write!(cmd, " -b {}", Self::quote_if_needed(relay)).ok();
             }
-            ScanTechnique::Multiple(techniques) => {
-                for technique in techniques {
-                    Self::build_scan_technique(cmd, technique);
-                }
-            }
         }
     }
 

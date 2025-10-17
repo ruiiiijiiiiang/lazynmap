@@ -2,67 +2,26 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Style},
-    widgets::StatefulWidget,
 };
 
-/// State for the Checkbox widget
-#[derive(Debug, Clone, Default)]
-pub struct CheckboxState {
-    pub checked: bool,
-    pub focused: bool,
-}
-
-impl CheckboxState {
-    pub fn new(checked: bool) -> Self {
-        Self {
-            checked,
-            focused: false,
-        }
-    }
-
-    pub fn toggle(&mut self) {
-        self.checked = !self.checked;
-    }
-
-    pub fn set(&mut self, checked: bool) {
-        self.checked = checked;
-    }
-
-    pub fn is_checked(&self) -> bool {
-        self.checked
-    }
-
-    pub fn set_focused(&mut self, focused: bool) {
-        self.focused = focused;
-    }
-
-    pub fn focus(&mut self) {
-        self.focused = true;
-    }
-
-    pub fn unfocus(&mut self) {
-        self.focused = false;
-    }
-
-    pub fn is_focused(&self) -> bool {
-        self.focused
-    }
-}
-
-/// Checkbox widget with customizable colors
+/// Checkbox widget that manages its own state
 #[derive(Debug, Clone)]
-pub struct Checkbox<'a> {
-    label: Option<&'a str>,
+pub struct Checkbox {
+    label: String,
+    checked: bool,
+    focused: bool,
     checked_style: Style,
     unchecked_style: Style,
     label_style: Style,
     focused_style: Style,
 }
 
-impl<'a> Checkbox<'a> {
-    pub fn new() -> Self {
+impl Checkbox {
+    pub fn new(label: impl Into<String>) -> Self {
         Self {
-            label: None,
+            label: label.into(),
+            checked: false,
+            focused: false,
             checked_style: Style::default().fg(Color::Green),
             unchecked_style: Style::default().fg(Color::Gray),
             label_style: Style::default(),
@@ -70,54 +29,69 @@ impl<'a> Checkbox<'a> {
         }
     }
 
-    pub fn label(mut self, label: &'a str) -> Self {
-        self.label = Some(label);
+    pub fn with_checked(mut self, checked: bool) -> Self {
+        self.checked = checked;
         self
     }
 
-    pub fn checked_style(mut self, style: Style) -> Self {
+    pub fn with_focused(mut self, focused: bool) -> Self {
+        self.focused = focused;
+        self
+    }
+
+    pub fn with_checked_style(mut self, style: Style) -> Self {
         self.checked_style = style;
         self
     }
 
-    pub fn unchecked_style(mut self, style: Style) -> Self {
+    pub fn with_unchecked_style(mut self, style: Style) -> Self {
         self.unchecked_style = style;
         self
     }
 
-    pub fn label_style(mut self, style: Style) -> Self {
+    pub fn with_label_style(mut self, style: Style) -> Self {
         self.label_style = style;
         self
     }
 
-    pub fn focused_style(mut self, style: Style) -> Self {
+    pub fn with_focused_style(mut self, style: Style) -> Self {
         self.focused_style = style;
         self
     }
-}
 
-impl<'a> Default for Checkbox<'a> {
-    fn default() -> Self {
-        Self::new()
+    pub fn set_checked(&mut self, checked: bool) {
+        self.checked = checked;
     }
-}
 
-impl<'a> StatefulWidget for Checkbox<'a> {
-    type State = CheckboxState;
+    pub fn set_focused(&mut self, focused: bool) {
+        self.focused = focused;
+    }
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    pub fn toggle(&mut self) {
+        self.checked = !self.checked;
+    }
+
+    pub fn is_checked(&self) -> bool {
+        self.checked
+    }
+
+    pub fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    pub fn render(&self, area: Rect, buf: &mut Buffer) {
         if area.width < 3 || area.height < 1 {
             return;
         }
 
-        let (checkbox_text, style) = if state.checked {
+        let (checkbox_text, style) = if self.checked {
             ("[X]", self.checked_style)
         } else {
             ("[ ]", self.unchecked_style)
         };
 
         // Apply focused style if focused
-        let style = if state.focused {
+        let style = if self.focused {
             self.focused_style
         } else {
             style
@@ -138,23 +112,21 @@ impl<'a> StatefulWidget for Checkbox<'a> {
         }
         x += 3;
 
-        // Render label if present
-        if let Some(label) = self.label
-            && x < area.x + area.width
-        {
+        // Render label
+        if x < area.x + area.width {
             // Add space between checkbox and label
             if let Some(cell) = buf.cell_mut((x, y)) {
                 cell.set_char(' ');
             }
             x += 1;
 
-            let label_style = if state.focused {
+            let label_style = if self.focused {
                 self.focused_style
             } else {
                 self.label_style
             };
 
-            for (i, c) in label.chars().enumerate() {
+            for (i, c) in self.label.chars().enumerate() {
                 if x + i as u16 >= area.x + area.width {
                     break;
                 }
@@ -167,29 +139,26 @@ impl<'a> StatefulWidget for Checkbox<'a> {
     }
 }
 
+impl Default for Checkbox {
+    fn default() -> Self {
+        Self::new("")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_checkbox_state() {
-        let mut state = CheckboxState::new(false);
-        assert!(!state.is_checked());
-        assert!(!state.is_focused());
+    fn test_checkbox() {
+        let mut checkbox = Checkbox::new("Test");
+        assert!(!checkbox.is_checked());
+        assert!(!checkbox.is_focused());
 
-        state.toggle();
-        assert!(state.is_checked());
+        checkbox.toggle();
+        assert!(checkbox.is_checked());
 
-        state.set(false);
-        assert!(!state.is_checked());
-
-        state.focus();
-        assert!(state.is_focused());
-
-        state.unfocus();
-        assert!(!state.is_focused());
-
-        state.set_focused(true);
-        assert!(state.is_focused());
+        checkbox.set_focused(true);
+        assert!(checkbox.is_focused());
     }
 }

@@ -1,5 +1,7 @@
 use std::net::IpAddr;
 use std::path::PathBuf;
+use strum::IntoEnumIterator;
+use strum_macros::{Display, EnumCount, EnumIter};
 
 /// Represents a complete nmap scan configuration
 #[derive(Debug, Clone, Default)]
@@ -84,7 +86,6 @@ pub enum ScanTechnique {
     Sctp(SctpScanType), // -sY, -sZ
     IpProtocol,         // -sO
     Ftp(String),        // -b (FTP bounce)
-    Multiple(Vec<ScanTechnique>),
 }
 
 #[derive(Debug, Clone)]
@@ -158,14 +159,34 @@ pub struct TimingPerformance {
     pub nsock_engine: Option<String>,        // --nsock-engine
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Display, EnumIter, EnumCount)]
 pub enum TimingTemplate {
-    Paranoid = 0,   // T0
-    Sneaky = 1,     // T1
-    Polite = 2,     // T2
-    Normal = 3,     // T3
-    Aggressive = 4, // T4
-    Insane = 5,     // T5
+    #[strum(to_string = "Paranoid (-T0)")]
+    Paranoid = 0,
+    #[strum(to_string = "Sneaky (-T1)")]
+    Sneaky = 1,
+    #[strum(to_string = "Polite (-T2)")]
+    Polite = 2,
+    #[strum(to_string = "Normal (-T3)")]
+    Normal = 3,
+    #[strum(to_string = "Aggressive (-T4)")]
+    Aggressive = 4,
+    #[strum(to_string = "Insane (-T5)")]
+    Insane = 5,
+}
+
+impl TimingTemplate {
+    pub fn as_index(&self) -> usize {
+        *self as usize
+    }
+
+    pub fn from_index(index: usize) -> Option<Self> {
+        TimingTemplate::iter().nth(index)
+    }
+
+    pub fn all_labels() -> Vec<String> {
+        Self::iter().map(|t| t.to_string()).collect()
+    }
 }
 
 /// Firewall/IDS evasion and spoofing
