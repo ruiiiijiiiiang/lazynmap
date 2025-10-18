@@ -73,25 +73,20 @@ pub struct HostDiscovery {
 pub enum ScanTechnique {
     #[default]
     Syn, // -sS (default)
-    Connect,            // -sT
-    Ack,                // -sA
-    Window,             // -sW
-    Maimon,             // -sM
-    Udp,                // -sU
-    TcpNull,            // -sN
-    Fin,                // -sF
-    Xmas,               // -sX
-    Scanflags(String),  // --scanflags
-    Idle(String),       // -sI (zombie host)
-    Sctp(SctpScanType), // -sY, -sZ
-    IpProtocol,         // -sO
-    Ftp(String),        // -b (FTP bounce)
-}
-
-#[derive(Debug, Clone)]
-pub enum SctpScanType {
-    Init,   // -sY
-    Cookie, // -sZ
+    Connect,           // -sT
+    Ack,               // -sA
+    Window,            // -sW
+    Maimon,            // -sM
+    Udp,               // -sU
+    TcpNull,           // -sN
+    Fin,               // -sF
+    Xmas,              // -sX
+    Scanflags(String), // --scanflags
+    Idle(String),      // -sI (zombie host)
+    SctpInit,          // -sY
+    SctpCookie,        // -sZ
+    IpProtocol,        // -sO
+    Ftp(String),       // -b (FTP bounce)
 }
 
 /// Port specification

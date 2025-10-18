@@ -121,6 +121,20 @@ impl InputWidget {
         }
     }
 
+    pub fn set_typed_value(&mut self, value: InputValue) {
+        match (self, value) {
+            (InputWidget::String(input), InputValue::String(value)) => input.set_typed_value(value),
+            (InputWidget::Int(input), InputValue::Int(value)) => input.set_typed_value(value),
+            (InputWidget::Float(input), InputValue::Float(value)) => input.set_typed_value(value),
+            (InputWidget::VecString(input), InputValue::VecString(value)) => {
+                input.set_typed_value(value)
+            }
+            (InputWidget::VecInt(input), InputValue::VecInt(value)) => input.set_typed_value(value),
+            (InputWidget::Path(input), InputValue::Path(value)) => input.set_typed_value(value),
+            _ => {}
+        }
+    }
+
     pub fn content(&self) -> &str {
         match self {
             InputWidget::String(input) => input.content(),
@@ -227,7 +241,7 @@ impl InputBuffer {
 
 pub trait Parser<T> {
     fn parse(&self, input: &str) -> Result<T, String>;
-    fn type_name(&self) -> &str;
+    fn format(&self, value: &T) -> String;
 }
 
 // ============================================================================
@@ -241,8 +255,8 @@ impl Parser<String> for StringParser {
         Ok(input.to_string())
     }
 
-    fn type_name(&self) -> &str {
-        "String"
+    fn format(&self, value: &String) -> String {
+        value.to_string()
     }
 }
 
@@ -255,8 +269,8 @@ impl Parser<i64> for IntParser {
             .map_err(|_| format!("Invalid integer: {}", input))
     }
 
-    fn type_name(&self) -> &str {
-        "Integer"
+    fn format(&self, value: &i64) -> String {
+        value.to_string()
     }
 }
 
@@ -269,8 +283,8 @@ impl Parser<f64> for FloatParser {
             .map_err(|_| format!("Invalid float: {}", input))
     }
 
-    fn type_name(&self) -> &str {
-        "Float"
+    fn format(&self, value: &f64) -> String {
+        value.to_string()
     }
 }
 
@@ -306,8 +320,8 @@ impl Parser<Vec<String>> for VecStringParser {
             .collect())
     }
 
-    fn type_name(&self) -> &str {
-        "Vec<String>"
+    fn format(&self, value: &Vec<String>) -> String {
+        value.join(", ")
     }
 }
 
@@ -347,8 +361,12 @@ impl Parser<Vec<i64>> for VecIntParser {
             .collect()
     }
 
-    fn type_name(&self) -> &str {
-        "Vec<i64>"
+    fn format(&self, value: &Vec<i64>) -> String {
+        value
+            .iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
 
@@ -362,8 +380,8 @@ impl Parser<PathBuf> for PathBufParser {
         Ok(PathBuf::from(input))
     }
 
-    fn type_name(&self) -> &str {
-        "PathBuf"
+    fn format(&self, value: &PathBuf) -> String {
+        value.to_string_lossy().to_string()
     }
 }
 
@@ -406,6 +424,11 @@ impl<T> TextInput<T> {
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
+    }
+
+    pub fn set_typed_value(&mut self, value: T) {
+        let content = self.parser.format(&value);
+        self.set_content(content);
     }
 
     pub fn handle_event(&mut self, event: &Event) -> EventResult<T> {
@@ -701,6 +724,11 @@ impl CompletingInput {
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.input = self.input.with_label(label);
         self
+    }
+
+    pub fn set_typed_value(&mut self, value: PathBuf) {
+        let content = self.input.parser.format(&value);
+        self.set_content(content);
     }
 
     pub fn handle_event(&mut self, event: &Event) -> EventResult<PathBuf> {

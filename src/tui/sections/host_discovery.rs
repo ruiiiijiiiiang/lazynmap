@@ -4,8 +4,8 @@ use ratatui::{
 };
 
 use crate::{
-    scan::flags::{FlagValue, NmapFlag},
-    tui::{app::App, widgets::checkbox::Checkbox},
+    scan::flags::NmapFlag,
+    tui::{app::App, utils::render_checkbox},
 };
 
 pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
@@ -61,15 +61,4 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     {
         render_checkbox(app, flag, frame, row_1_col_chunks[index]);
     }
-}
-
-fn render_checkbox(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: Rect) {
-    let FlagValue::Bool(flag_value) = flag.get_flag_value(app.scan) else {
-        panic!()
-    };
-    let label = flag.to_string();
-    let checkbox = Checkbox::new(label)
-        .with_checked(*flag_value)
-        .with_focused(app.focused_flag == flag);
-    checkbox.render(area, frame.buffer_mut());
 }

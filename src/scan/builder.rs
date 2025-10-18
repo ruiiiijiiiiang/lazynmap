@@ -2,8 +2,8 @@ use std::fmt::Write;
 
 use crate::scan::model::{
     EvasionSpoofing, HostDiscovery, MiscOptions, NmapScan, OsDetection, OutputOptions,
-    PortSpecification, ScanTechnique, ScriptScan, SctpScanType, ServiceDetection,
-    TargetSpecification, TimingPerformance,
+    PortSpecification, ScanTechnique, ScriptScan, ServiceDetection, TargetSpecification,
+    TimingPerformance,
 };
 
 /// Builder for converting NmapScan structs into command strings
@@ -117,10 +117,8 @@ impl NmapCommandBuilder {
             ScanTechnique::Idle(zombie) => {
                 write!(cmd, " -sI {}", Self::quote_if_needed(zombie)).ok();
             }
-            ScanTechnique::Sctp(sctp_type) => match sctp_type {
-                SctpScanType::Init => cmd.push_str(" -sY"),
-                SctpScanType::Cookie => cmd.push_str(" -sZ"),
-            },
+            ScanTechnique::SctpInit => cmd.push_str(" -sY"),
+            ScanTechnique::SctpCookie => cmd.push_str(" -sZ"),
             ScanTechnique::IpProtocol => cmd.push_str(" -sO"),
             ScanTechnique::Ftp(relay) => {
                 write!(cmd, " -b {}", Self::quote_if_needed(relay)).ok();

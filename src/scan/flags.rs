@@ -16,6 +16,18 @@ pub enum NmapFlag {
         message = "Input from list of hosts/networks"
     )]
     InputFile,
+    #[strum(to_string = "Exclude (--exclude)", message = "Exclude hosts/networks")]
+    Exclude,
+    #[strum(
+        to_string = "Exclude file (--exclude-file)",
+        message = "Exclude list from file"
+    )]
+    ExcludeFile,
+    #[strum(
+        to_string = "Random targets (-iR)",
+        message = "Number of random targets"
+    )]
+    RandomTargets,
     #[strum(to_string = "List scan (-sL)")]
     ListScan,
     #[strum(to_string = "Ping scan (-sn)")]
@@ -38,6 +50,7 @@ pub enum NmapFlag {
 
 pub enum FlagValue<'a> {
     Bool(&'a mut bool),
+    U32(&'a mut Option<u32>),
     VecString(&'a mut Vec<String>),
     Path(&'a mut Option<PathBuf>),
     TimingTemplate(&'a mut Option<TimingTemplate>),
@@ -48,6 +61,11 @@ impl NmapFlag {
         match self {
             NmapFlag::Targets => FlagValue::VecString(&mut scan.target_specification.targets),
             NmapFlag::InputFile => FlagValue::Path(&mut scan.target_specification.input_file),
+            NmapFlag::Exclude => FlagValue::VecString(&mut scan.target_specification.exclude),
+            NmapFlag::ExcludeFile => FlagValue::Path(&mut scan.target_specification.exclude_file),
+            NmapFlag::RandomTargets => {
+                FlagValue::U32(&mut scan.target_specification.random_targets)
+            }
             NmapFlag::ListScan => FlagValue::Bool(&mut scan.host_discovery.list_scan),
             NmapFlag::PingScan => FlagValue::Bool(&mut scan.host_discovery.ping_scan),
             NmapFlag::SkipPortScan => FlagValue::Bool(&mut scan.host_discovery.skip_port_scan),

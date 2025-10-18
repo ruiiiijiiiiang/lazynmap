@@ -5,7 +5,6 @@ use ratatui::{
     widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use std::{collections::HashMap, error::Error};
-use strum::EnumMessage;
 
 use crate::{
     scan::{
@@ -18,14 +17,13 @@ use crate::{
             host_discovery::render_host_discovery,
             target_specification::render_target_specification, timing::render_timing,
         },
-        widgets::text_input::{
-            CompletingInput, EventResult, InputValue, InputWidget, TextInput, VecStringParser,
-        },
+        utils::initialize_text_inputs,
+        widgets::text_input::{EventResult, InputValue, InputWidget},
     },
 };
 
 const SECTIONS: [(&str, u16); 10] = [
-    ("Target Specification", 10),
+    ("Target Specification", 11),
     ("Host Discovery", 10),
     ("Scan Technique", 10),
     ("Port Specification", 10),
@@ -54,18 +52,8 @@ impl<'a> App<'a> {
     pub fn new(scan: &'a mut NmapScan) -> Self {
         let total_height: u16 = SECTIONS.iter().map(|(_, height)| height).sum();
         let mut input_map = HashMap::new();
-        for flag in [NmapFlag::Targets].iter() {
-            let target_input = TextInput::new(VecStringParser::new())
-                .with_label(flag.to_string())
-                .with_placeholder(flag.get_message().unwrap());
-            input_map.insert(*flag, InputWidget::VecString(target_input));
-        }
-        for flag in [NmapFlag::InputFile].iter() {
-            let target_input = CompletingInput::new()
-                .with_label(flag.to_string())
-                .with_placeholder(flag.get_message().unwrap());
-            input_map.insert(*flag, InputWidget::Path(target_input));
-        }
+        initialize_text_inputs(scan, &mut input_map);
+
         Self {
             scan,
             input_map,
@@ -234,9 +222,13 @@ impl<'a> App<'a> {
                     .unwrap()
                     .handle_event(&event)
                 {
-                    EventResult::Consumed => (),
                     EventResult::Submit(value) => {
                         match value {
+                            InputValue::Int(value) => {
+                                if let FlagValue::U32(flag_value) = flag_value {
+                                    *flag_value = Some(value as u32);
+                                }
+                            }
                             InputValue::VecString(value) => {
                                 if let FlagValue::VecString(flag_value) = flag_value {
                                     *flag_value = value;
@@ -298,7 +290,7 @@ impl<'a> App<'a> {
                     },
                     KeyCode::Enter | KeyCode::Char(' ') => match flag_value {
                         FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
-                        FlagValue::VecString(_) | FlagValue::Path(_) => {
+                        FlagValue::VecString(_) | FlagValue::Path(_) | FlagValue::U32(_) => {
                             self.editing_flag = Some(self.focused_flag)
                         }
                         FlagValue::TimingTemplate(flag_value) => {
@@ -313,6 +305,7 @@ impl<'a> App<'a> {
                                     }
                                 });
                         }
+                        _ => {}
                     },
                     _ => {}
                 }

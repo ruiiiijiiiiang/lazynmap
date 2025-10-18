@@ -2,7 +2,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::scan::model::{NmapScan, ScanTechnique, SctpScanType, TimingTemplate};
+use crate::scan::model::{NmapScan, ScanTechnique, TimingTemplate};
 
 /// Error type for parsing failures
 #[derive(Debug, Clone)]
@@ -165,8 +165,8 @@ impl NmapParser {
             "-sN" => scan.scan_technique = ScanTechnique::TcpNull,
             "-sF" => scan.scan_technique = ScanTechnique::Fin,
             "-sX" => scan.scan_technique = ScanTechnique::Xmas,
-            "-sY" => scan.scan_technique = ScanTechnique::Sctp(SctpScanType::Init),
-            "-sZ" => scan.scan_technique = ScanTechnique::Sctp(SctpScanType::Cookie),
+            "-sY" => scan.scan_technique = ScanTechnique::SctpInit,
+            "-sZ" => scan.scan_technique = ScanTechnique::SctpCookie,
             "-sO" => scan.scan_technique = ScanTechnique::IpProtocol,
             "--scanflags" => {
                 scan.scan_technique =
