@@ -120,22 +120,22 @@ impl NmapParser {
             "-Pn" => scan.host_discovery.skip_port_scan = true,
             "-PS" => {
                 if let Some(val) = Self::peek_next_value(iter) {
-                    scan.host_discovery.syn_discovery = Self::parse_port_list(Some(val));
+                    scan.host_discovery.syn_discovery = Self::parse_int_list(Some(val));
                 }
             }
             "-PA" => {
                 if let Some(val) = Self::peek_next_value(iter) {
-                    scan.host_discovery.ack_discovery = Self::parse_port_list(Some(val));
+                    scan.host_discovery.ack_discovery = Self::parse_int_list(Some(val));
                 }
             }
             "-PU" => {
                 if let Some(val) = Self::peek_next_value(iter) {
-                    scan.host_discovery.udp_discovery = Self::parse_port_list(Some(val));
+                    scan.host_discovery.udp_discovery = Self::parse_int_list(Some(val));
                 }
             }
             "-PY" => {
                 if let Some(val) = Self::peek_next_value(iter) {
-                    scan.host_discovery.sctp_discovery = Self::parse_port_list(Some(val));
+                    scan.host_discovery.sctp_discovery = Self::parse_int_list(Some(val));
                 }
             }
             "-PE" => scan.host_discovery.icmp_echo = true,
@@ -143,9 +143,11 @@ impl NmapParser {
             "-PM" => scan.host_discovery.icmp_netmask = true,
             "-PO" => {
                 if let Some(val) = Self::peek_next_value(iter) {
-                    scan.host_discovery.ip_protocol_ping = Self::parse_protocol_list(Some(val));
+                    scan.host_discovery.ip_protocol_ping = Self::parse_int_list(Some(val));
                 }
             }
+            "-n" => scan.host_discovery.no_resolve = true,
+            "-R" => scan.host_discovery.always_resolve = true,
             "--traceroute" => scan.host_discovery.traceroute = true,
             "--dns-servers" => {
                 scan.host_discovery.dns_servers = Self::get_next_value(iter, flag)?
@@ -389,8 +391,6 @@ impl NmapParser {
             "--release-memory" => scan.misc.release_memory = true,
             "-V" | "--version" => scan.misc.version = true,
             "-h" | "--help" => scan.misc.help = true,
-            "-R" => scan.misc.resolve_all = true,
-            "-n" => scan.misc.no_resolve = true,
             "--unique" => scan.misc.unique = true,
             "--log-errors" => scan.misc.log_errors = true,
 
@@ -431,12 +431,7 @@ impl NmapParser {
             .map_err(|_| ParseError::InvalidValue(flag.to_string(), s.to_string()))
     }
 
-    fn parse_port_list(s: Option<&str>) -> Vec<u16> {
-        s.map(|s| s.split(',').filter_map(|p| p.parse().ok()).collect())
-            .unwrap_or_default()
-    }
-
-    fn parse_protocol_list(s: Option<&str>) -> Vec<u8> {
+    fn parse_int_list(s: Option<&str>) -> Vec<u32> {
         s.map(|s| s.split(',').filter_map(|p| p.parse().ok()).collect())
             .unwrap_or_default()
     }
@@ -497,12 +492,13 @@ mod tests {
 
     #[test]
     fn test_host_discovery() {
-        let result = NmapParser::parse("nmap -sL -sn -Pn 192.168.1.0/24");
+        let result = NmapParser::parse("nmap -sL -sn -Pn -n 192.168.1.0/24");
         assert!(result.is_ok());
         let scan = result.unwrap();
         assert!(scan.host_discovery.list_scan);
         assert!(scan.host_discovery.ping_scan);
         assert!(scan.host_discovery.skip_port_scan);
+        assert!(scan.host_discovery.no_resolve);
         assert_eq!(scan.target_specification.targets, vec!["192.168.1.0/24"]);
     }
 
@@ -538,12 +534,11 @@ mod tests {
 
     #[test]
     fn test_misc_flags() {
-        let result = NmapParser::parse("nmap -6 -A -n example.com");
+        let result = NmapParser::parse("nmap -6 -A example.com");
         assert!(result.is_ok());
         let scan = result.unwrap();
         assert!(scan.misc.ipv6);
         assert!(scan.misc.aggressive);
-        assert!(scan.misc.no_resolve);
     }
 
     #[test]

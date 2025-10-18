@@ -2,7 +2,7 @@ use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode},
     prelude::*,
-    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use std::{collections::HashMap, error::Error};
 
@@ -24,7 +24,7 @@ use crate::{
 
 const SECTIONS: [(&str, u16); 10] = [
     ("Target Specification", 11),
-    ("Host Discovery", 10),
+    ("Host Discovery", 11),
     ("Scan Technique", 10),
     ("Port Specification", 10),
     ("Service Detection", 10),
@@ -164,6 +164,7 @@ impl<'a> App<'a> {
                 let flag_block = Block::bordered()
                     .title(SECTIONS[index].0)
                     .border_style(border_style);
+                Clear.render(visible_area, frame.buffer_mut());
                 frame.render_widget(flag_block, visible_area);
                 match index {
                     0 => render_target_specification(
@@ -202,7 +203,9 @@ impl<'a> App<'a> {
         );
 
         let footer_block = Block::bordered().title(Line::from("Nmap command").centered());
-        let nmap_command = Paragraph::new(NmapCommandBuilder::build(self.scan)).block(footer_block);
+        let nmap_command = Paragraph::new(NmapCommandBuilder::build(self.scan))
+            .centered()
+            .block(footer_block);
         frame.render_widget(nmap_command, chunks[1]);
 
         if let Some(flag) = self.editing_flag
@@ -223,21 +226,18 @@ impl<'a> App<'a> {
                     .handle_event(&event)
                 {
                     EventResult::Submit(value) => {
-                        match value {
-                            InputValue::Int(value) => {
-                                if let FlagValue::U32(flag_value) = flag_value {
-                                    *flag_value = Some(value as u32);
-                                }
+                        match (value, flag_value) {
+                            (InputValue::Int(value), FlagValue::Int(flag_value)) => {
+                                *flag_value = Some(value);
                             }
-                            InputValue::VecString(value) => {
-                                if let FlagValue::VecString(flag_value) = flag_value {
-                                    *flag_value = value;
-                                }
+                            (InputValue::VecInt(value), FlagValue::VecInt(flag_value)) => {
+                                *flag_value = value;
                             }
-                            InputValue::Path(value) => {
-                                if let FlagValue::Path(flag_value) = flag_value {
-                                    *flag_value = Some(value);
-                                }
+                            (InputValue::VecString(value), FlagValue::VecString(flag_value)) => {
+                                *flag_value = value;
+                            }
+                            (InputValue::Path(value), FlagValue::Path(flag_value)) => {
+                                *flag_value = Some(value);
                             }
                             _ => {}
                         }
@@ -290,9 +290,10 @@ impl<'a> App<'a> {
                     },
                     KeyCode::Enter | KeyCode::Char(' ') => match flag_value {
                         FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
-                        FlagValue::VecString(_) | FlagValue::Path(_) | FlagValue::U32(_) => {
-                            self.editing_flag = Some(self.focused_flag)
-                        }
+                        FlagValue::VecString(_)
+                        | FlagValue::Path(_)
+                        | FlagValue::Int(_)
+                        | FlagValue::VecInt(_) => self.editing_flag = Some(self.focused_flag),
                         FlagValue::TimingTemplate(flag_value) => {
                             *flag_value = self
                                 .focused_radio_index
@@ -305,7 +306,6 @@ impl<'a> App<'a> {
                                     }
                                 });
                         }
-                        _ => {}
                     },
                     _ => {}
                 }

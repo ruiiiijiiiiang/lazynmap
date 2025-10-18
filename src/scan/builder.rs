@@ -61,16 +61,16 @@ impl NmapCommandBuilder {
             cmd.push_str(" -Pn");
         }
         if !hd.syn_discovery.is_empty() {
-            write!(cmd, " -PS{}", Self::format_port_list(&hd.syn_discovery)).ok();
+            write!(cmd, " -PS{}", Self::format_int_list(&hd.syn_discovery)).ok();
         }
         if !hd.ack_discovery.is_empty() {
-            write!(cmd, " -PA{}", Self::format_port_list(&hd.ack_discovery)).ok();
+            write!(cmd, " -PA{}", Self::format_int_list(&hd.ack_discovery)).ok();
         }
         if !hd.udp_discovery.is_empty() {
-            write!(cmd, " -PU{}", Self::format_port_list(&hd.udp_discovery)).ok();
+            write!(cmd, " -PU{}", Self::format_int_list(&hd.udp_discovery)).ok();
         }
         if !hd.sctp_discovery.is_empty() {
-            write!(cmd, " -PY{}", Self::format_port_list(&hd.sctp_discovery)).ok();
+            write!(cmd, " -PY{}", Self::format_int_list(&hd.sctp_discovery)).ok();
         }
         if hd.icmp_echo {
             cmd.push_str(" -PE");
@@ -82,12 +82,13 @@ impl NmapCommandBuilder {
             cmd.push_str(" -PM");
         }
         if !hd.ip_protocol_ping.is_empty() {
-            write!(
-                cmd,
-                " -PO{}",
-                Self::format_protocol_list(&hd.ip_protocol_ping)
-            )
-            .ok();
+            write!(cmd, " -PO{}", Self::format_int_list(&hd.ip_protocol_ping)).ok();
+        }
+        if hd.no_resolve {
+            cmd.push_str(" -n");
+        }
+        if hd.always_resolve {
+            cmd.push_str(" -R");
         }
         if hd.traceroute {
             cmd.push_str(" --traceroute");
@@ -438,12 +439,6 @@ impl NmapCommandBuilder {
         if misc.help {
             cmd.push_str(" -h");
         }
-        if misc.resolve_all {
-            cmd.push_str(" -R");
-        }
-        if misc.no_resolve {
-            cmd.push_str(" -n");
-        }
         if misc.unique {
             cmd.push_str(" --unique");
         }
@@ -473,16 +468,8 @@ impl NmapCommandBuilder {
     }
 
     // Helper functions
-    fn format_port_list(ports: &[u16]) -> String {
+    fn format_int_list(ports: &[u32]) -> String {
         ports
-            .iter()
-            .map(|p| p.to_string())
-            .collect::<Vec<_>>()
-            .join(",")
-    }
-
-    fn format_protocol_list(protocols: &[u8]) -> String {
-        protocols
             .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
@@ -622,6 +609,7 @@ mod tests {
         scan.host_discovery.ack_discovery = vec![22];
         scan.host_discovery.udp_discovery = vec![53];
         scan.host_discovery.icmp_echo = true;
+        scan.host_discovery.no_resolve = true;
         scan.host_discovery.dns_servers = vec!["8.8.8.8".to_string(), "1.1.1.1".to_string()];
 
         let cmd = NmapCommandBuilder::build(&scan);
@@ -632,6 +620,7 @@ mod tests {
         assert!(cmd.contains(" -PU53"));
         assert!(cmd.contains(" -PE"));
         assert!(cmd.contains(" 192.168.1.0/24"));
+        assert!(cmd.contains(" -n"));
         assert!(cmd.contains(" --dns-servers 8.8.8.8,1.1.1.1"));
     }
 
@@ -698,12 +687,10 @@ mod tests {
         scan.target_specification.targets = vec!["example.com".to_string()];
         scan.misc.ipv6 = true;
         scan.misc.aggressive = true;
-        scan.misc.no_resolve = true;
 
         let cmd = NmapCommandBuilder::build(&scan);
         assert!(cmd.contains(" -6"));
         assert!(cmd.contains(" -A"));
-        assert!(cmd.contains(" -n"));
         assert!(cmd.contains(" example.com"));
     }
 }

@@ -52,20 +52,22 @@ pub struct TargetSpecification {
 /// Host discovery options
 #[derive(Debug, Clone, Default)]
 pub struct HostDiscovery {
-    pub list_scan: bool,           // -sL
-    pub ping_scan: bool,           // -sn
-    pub skip_port_scan: bool,      // -Pn
-    pub syn_discovery: Vec<u16>,   // -PS
-    pub ack_discovery: Vec<u16>,   // -PA
-    pub udp_discovery: Vec<u16>,   // -PU
-    pub sctp_discovery: Vec<u16>,  // -PY
-    pub icmp_echo: bool,           // -PE
-    pub icmp_timestamp: bool,      // -PP
-    pub icmp_netmask: bool,        // -PM
-    pub ip_protocol_ping: Vec<u8>, // -PO
-    pub dns_servers: Vec<String>,  // --dns-servers
-    pub system_dns: bool,          // --system-dns
-    pub traceroute: bool,          // --traceroute
+    pub list_scan: bool,            // -sL
+    pub ping_scan: bool,            // -sn
+    pub skip_port_scan: bool,       // -Pn
+    pub syn_discovery: Vec<u32>,    // -PS
+    pub ack_discovery: Vec<u32>,    // -PA
+    pub udp_discovery: Vec<u32>,    // -PU
+    pub sctp_discovery: Vec<u32>,   // -PY
+    pub icmp_echo: bool,            // -PE
+    pub icmp_timestamp: bool,       // -PP
+    pub icmp_netmask: bool,         // -PM
+    pub ip_protocol_ping: Vec<u32>, // -PO
+    pub no_resolve: bool,           // -n
+    pub always_resolve: bool,       // -R
+    pub dns_servers: Vec<String>,   // --dns-servers
+    pub system_dns: bool,           // --system-dns
+    pub traceroute: bool,           // --traceroute
 }
 
 /// Scan technique options
@@ -103,11 +105,11 @@ pub struct PortSpecification {
 /// Service and version detection
 #[derive(Debug, Clone, Default)]
 pub struct ServiceDetection {
-    pub enabled: bool,         // -sV
-    pub intensity: Option<u8>, // --version-intensity (0-9)
-    pub light: bool,           // --version-light
-    pub all: bool,             // --version-all
-    pub trace: bool,           // --version-trace
+    pub enabled: bool,          // -sV
+    pub intensity: Option<u32>, // --version-intensity (0-9)
+    pub light: bool,            // --version-light
+    pub all: bool,              // --version-all
+    pub trace: bool,            // --version-trace
 }
 
 /// Script scanning options
@@ -192,12 +194,12 @@ pub struct EvasionSpoofing {
     pub decoys: Vec<String>,         // -D
     pub spoof_ip: Option<IpAddr>,    // -S
     pub interface: Option<String>,   // -e
-    pub source_port: Option<u16>,    // -g/--source-port
+    pub source_port: Option<u32>,    // -g/--source-port
     pub data: Option<String>,        // --data
     pub data_string: Option<String>, // --data-string
     pub data_length: Option<u32>,    // --data-length
     pub ip_options: Option<String>,  // --ip-options
-    pub ttl: Option<u8>,             // --ttl
+    pub ttl: Option<u32>,            // --ttl
     pub randomize_hosts: bool,       // --randomize-hosts
     pub spoof_mac: Option<String>,   // --spoof-mac
     pub badsum: bool,                // --badsum
@@ -212,8 +214,8 @@ pub struct OutputOptions {
     pub script_kiddie: Option<PathBuf>, // -oS
     pub grepable: Option<PathBuf>,      // -oG
     pub all_formats: Option<String>,    // -oA (base filename)
-    pub verbose: u8,                    // -v, -vv, etc. (0-10+)
-    pub debug: u8,                      // -d, -dd, etc. (0-10+)
+    pub verbose: u32,                   // -v, -vv, etc. (0-10+)
+    pub debug: u32,                     // -d, -dd, etc. (0-10+)
     pub reason: bool,                   // --reason
     pub stats_every: Option<String>,    // --stats-every
     pub packet_trace: bool,             // --packet-trace
@@ -239,8 +241,6 @@ pub struct MiscOptions {
     pub release_memory: bool,     // --release-memory
     pub version: bool,            // -V
     pub help: bool,               // -h
-    pub resolve_all: bool,        // -R
-    pub no_resolve: bool,         // -n
     pub unique: bool,             // --unique
     pub log_errors: bool,         // --log-errors
 }

@@ -23,20 +23,20 @@ pub enum EventResult<T> {
 
 pub enum InputWidget {
     String(TextInput<String>),
-    Int(TextInput<i64>),
-    Float(TextInput<f64>),
+    Int(TextInput<u32>),
+    Float(TextInput<f32>),
     VecString(TextInput<Vec<String>>),
-    VecInt(TextInput<Vec<i64>>),
+    VecInt(TextInput<Vec<u32>>),
     Path(CompletingInput),
 }
 
 #[derive(Debug)]
 pub enum InputValue {
     String(String),
-    Int(i64),
-    Float(f64),
+    Int(u32),
+    Float(f32),
     VecString(Vec<String>),
-    VecInt(Vec<i64>),
+    VecInt(Vec<u32>),
     Path(PathBuf),
 }
 
@@ -262,51 +262,33 @@ impl Parser<String> for StringParser {
 
 pub struct IntParser;
 
-impl Parser<i64> for IntParser {
-    fn parse(&self, input: &str) -> Result<i64, String> {
+impl Parser<u32> for IntParser {
+    fn parse(&self, input: &str) -> Result<u32, String> {
         input
-            .parse::<i64>()
+            .parse::<u32>()
             .map_err(|_| format!("Invalid integer: {}", input))
     }
 
-    fn format(&self, value: &i64) -> String {
+    fn format(&self, value: &u32) -> String {
         value.to_string()
     }
 }
 
 pub struct FloatParser;
 
-impl Parser<f64> for FloatParser {
-    fn parse(&self, input: &str) -> Result<f64, String> {
+impl Parser<f32> for FloatParser {
+    fn parse(&self, input: &str) -> Result<f32, String> {
         input
-            .parse::<f64>()
+            .parse::<f32>()
             .map_err(|_| format!("Invalid float: {}", input))
     }
 
-    fn format(&self, value: &f64) -> String {
+    fn format(&self, value: &f32) -> String {
         value.to_string()
     }
 }
 
-pub struct VecStringParser {
-    delimiter: char,
-}
-
-impl VecStringParser {
-    pub fn new() -> Self {
-        Self { delimiter: ',' }
-    }
-
-    pub fn with_delimiter(delimiter: char) -> Self {
-        Self { delimiter }
-    }
-}
-
-impl Default for VecStringParser {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub struct VecStringParser;
 
 impl Parser<Vec<String>> for VecStringParser {
     fn parse(&self, input: &str) -> Result<Vec<String>, String> {
@@ -314,7 +296,7 @@ impl Parser<Vec<String>> for VecStringParser {
             return Ok(Vec::new());
         }
         Ok(input
-            .split(self.delimiter)
+            .split(",")
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect())
@@ -325,43 +307,25 @@ impl Parser<Vec<String>> for VecStringParser {
     }
 }
 
-pub struct VecIntParser {
-    delimiter: char,
-}
+pub struct VecIntParser;
 
-impl VecIntParser {
-    pub fn new() -> Self {
-        Self { delimiter: ',' }
-    }
-
-    pub fn with_delimiter(delimiter: char) -> Self {
-        Self { delimiter }
-    }
-}
-
-impl Default for VecIntParser {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Parser<Vec<i64>> for VecIntParser {
-    fn parse(&self, input: &str) -> Result<Vec<i64>, String> {
+impl Parser<Vec<u32>> for VecIntParser {
+    fn parse(&self, input: &str) -> Result<Vec<u32>, String> {
         if input.trim().is_empty() {
             return Ok(Vec::new());
         }
         input
-            .split(self.delimiter)
+            .split(",")
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .map(|s| {
-                s.parse::<i64>()
+                s.parse::<u32>()
                     .map_err(|_| format!("Invalid integer: {}", s))
             })
             .collect()
     }
 
-    fn format(&self, value: &Vec<i64>) -> String {
+    fn format(&self, value: &Vec<u32>) -> String {
         value
             .iter()
             .map(|n| n.to_string())
@@ -495,7 +459,7 @@ impl<T> TextInput<T> {
         };
 
         let (label_area, input_area) = if let Some(label) = &self.label {
-            let label_width = (label.len() as u16 + 2).min(area.width / 3);
+            let label_width = label.len() as u16 + 2;
 
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
@@ -650,7 +614,7 @@ impl PathCompleter {
                 .map(|e| e.path())
                 .filter(|p| {
                     if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
-                        name.starts_with(prefix)
+                        name.to_lowercase().starts_with(&prefix.to_lowercase())
                     } else {
                         false
                     }

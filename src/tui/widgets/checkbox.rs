@@ -98,7 +98,7 @@ impl Checkbox {
         };
 
         let mut x = area.x;
-        let y = area.y;
+        let y = area.y + area.height / 2;
 
         // Render checkbox
         for (i, c) in checkbox_text.chars().enumerate() {
