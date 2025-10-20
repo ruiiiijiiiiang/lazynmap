@@ -2,7 +2,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::scan::model::{NmapScan, ScanTechnique, TimingTemplate};
+use crate::scan::model::{NmapScan, NsockEngine, SctpScanType, TcpScanType, TimingTemplate};
 
 /// Error type for parsing failures
 #[derive(Debug, Clone)]
@@ -113,6 +113,17 @@ impl NmapParser {
                 scan.target_specification.exclude_file =
                     Some(PathBuf::from(Self::get_next_value(iter, flag)?))
             }
+            "-n" => scan.target_specification.no_resolve = true,
+            "-R" => scan.target_specification.always_resolve = true,
+            "--resolve_all" => scan.target_specification.resolve_all = true,
+            "--unique" => scan.target_specification.unique = true,
+            "--system-dns" => scan.target_specification.system_dns = true,
+            "--dns-servers" => {
+                scan.target_specification.dns_servers = Self::get_next_value(iter, flag)?
+                    .split(',')
+                    .map(String::from)
+                    .collect()
+            }
 
             // Host discovery
             "-sL" => scan.host_discovery.list_scan = true,
@@ -146,63 +157,61 @@ impl NmapParser {
                     scan.host_discovery.ip_protocol_ping = Self::parse_int_list(Some(val));
                 }
             }
-            "-n" => scan.host_discovery.no_resolve = true,
-            "-R" => scan.host_discovery.always_resolve = true,
+            "--disable_arp_ping" => scan.host_discovery.disable_arp_ping = true,
+            "--discover_ignore_rst" => scan.host_discovery.discover_ignore_rst = true,
             "--traceroute" => scan.host_discovery.traceroute = true,
-            "--dns-servers" => {
-                scan.host_discovery.dns_servers = Self::get_next_value(iter, flag)?
-                    .split(',')
-                    .map(String::from)
-                    .collect()
-            }
-            "--system-dns" => scan.host_discovery.system_dns = true,
 
             // Scan techniques
-            "-sS" => scan.scan_technique = ScanTechnique::Syn,
-            "-sT" => scan.scan_technique = ScanTechnique::Connect,
-            "-sA" => scan.scan_technique = ScanTechnique::Ack,
-            "-sW" => scan.scan_technique = ScanTechnique::Window,
-            "-sM" => scan.scan_technique = ScanTechnique::Maimon,
-            "-sU" => scan.scan_technique = ScanTechnique::Udp,
-            "-sN" => scan.scan_technique = ScanTechnique::TcpNull,
-            "-sF" => scan.scan_technique = ScanTechnique::Fin,
-            "-sX" => scan.scan_technique = ScanTechnique::Xmas,
-            "-sY" => scan.scan_technique = ScanTechnique::SctpInit,
-            "-sZ" => scan.scan_technique = ScanTechnique::SctpCookie,
-            "-sO" => scan.scan_technique = ScanTechnique::IpProtocol,
+            "-sS" => scan.scan_technique.tcp = Some(TcpScanType::Syn),
+            "-sT" => scan.scan_technique.tcp = Some(TcpScanType::Connect),
+            "-sA" => scan.scan_technique.tcp = Some(TcpScanType::Ack),
+            "-sW" => scan.scan_technique.tcp = Some(TcpScanType::Window),
+            "-sM" => scan.scan_technique.tcp = Some(TcpScanType::Maimon),
+            "-sU" => scan.scan_technique.udp = true,
+            "-sN" => scan.scan_technique.tcp = Some(TcpScanType::Null),
+            "-sF" => scan.scan_technique.tcp = Some(TcpScanType::Fin),
+            "-sX" => scan.scan_technique.tcp = Some(TcpScanType::Xmas),
+            "-sY" => scan.scan_technique.sctp = Some(SctpScanType::Init),
+            "-sZ" => scan.scan_technique.sctp = Some(SctpScanType::Cookie),
+            "-sO" => scan.scan_technique.tcp = Some(TcpScanType::IpProtocol),
             "--scanflags" => {
-                scan.scan_technique =
-                    ScanTechnique::Scanflags(Self::get_next_value(iter, flag)?.clone())
+                scan.scan_technique.tcp = Some(TcpScanType::Scanflags(
+                    Self::get_next_value(iter, flag)?.clone(),
+                ))
             }
             "-sI" => {
-                scan.scan_technique = ScanTechnique::Idle(Self::get_next_value(iter, flag)?.clone())
+                scan.scan_technique.tcp =
+                    Some(TcpScanType::Idle(Self::get_next_value(iter, flag)?.clone()))
             }
             "-b" => {
-                scan.scan_technique = ScanTechnique::Ftp(Self::get_next_value(iter, flag)?.clone())
+                scan.scan_technique.tcp =
+                    Some(TcpScanType::Ftp(Self::get_next_value(iter, flag)?.clone()))
             }
 
             // Port specification
             f if f.starts_with("-p") && f.len() > 2 => {
                 let rest = &flag[2..];
-                scan.ports.ports = Some(rest.to_string());
+                scan.port_specification.ports = Some(rest.to_string());
             }
-            "-p" => scan.ports.ports = Some(Self::get_next_value(iter, flag)?.clone()),
+            "-p" => scan.port_specification.ports = Some(Self::get_next_value(iter, flag)?.clone()),
             "--exclude-ports" => {
-                scan.ports.exclude_ports = Some(Self::get_next_value(iter, flag)?.clone())
+                scan.port_specification.exclude_ports =
+                    Some(Self::get_next_value(iter, flag)?.clone())
             }
-            "-F" => scan.ports.fast_mode = true,
-            "-r" => scan.ports.consecutive_ports = true,
+            "-F" => scan.port_specification.fast_mode = true,
+            "-r" => scan.port_specification.consecutive_ports = true,
             "--top-ports" => {
-                scan.ports.top_ports =
+                scan.port_specification.top_ports =
                     Some(Self::parse_number(Self::get_next_value(iter, flag)?, flag)?)
             }
             "--port-ratio" => {
-                scan.ports.port_ratio =
+                scan.port_specification.port_ratio =
                     Some(Self::parse_float(Self::get_next_value(iter, flag)?, flag)?)
             }
 
             // Service/Version detection
             "-sV" => scan.service_detection.enabled = true,
+            "--allports" => scan.service_detection.allports = true,
             "--version-intensity" => {
                 scan.service_detection.intensity =
                     Some(Self::parse_number(Self::get_next_value(iter, flag)?, flag)?)
@@ -210,6 +219,15 @@ impl NmapParser {
             "--version-light" => scan.service_detection.light = true,
             "--version-all" => scan.service_detection.all = true,
             "--version-trace" => scan.service_detection.trace = true,
+
+            // OS detection
+            "-O" => scan.os_detection.enabled = true,
+            "--osscan-limit" => scan.os_detection.limit = true,
+            "--osscan-guess" => scan.os_detection.guess = true,
+            "--max-os-tries" => {
+                scan.os_detection.max_retries =
+                    Some(Self::parse_number(Self::get_next_value(iter, flag)?, flag)?)
+            }
 
             // Script scan
             "-sC" => scan.script_scan.default = true,
@@ -232,22 +250,7 @@ impl NmapParser {
                 scan.script_scan.script_help = Some(Self::get_next_value(iter, flag)?.clone())
             }
 
-            // OS detection
-            "-O" => scan.os_detection.enabled = true,
-            "--osscan-limit" => scan.os_detection.limit = true,
-            "--osscan-guess" => scan.os_detection.guess = true,
-            "--max-os-tries" => {
-                scan.os_detection.max_retries =
-                    Some(Self::parse_number(Self::get_next_value(iter, flag)?, flag)?)
-            }
-
             // Timing and performance
-            "-T0" => scan.timing.template = Some(TimingTemplate::Paranoid),
-            "-T1" => scan.timing.template = Some(TimingTemplate::Sneaky),
-            "-T2" => scan.timing.template = Some(TimingTemplate::Polite),
-            "-T3" => scan.timing.template = Some(TimingTemplate::Normal),
-            "-T4" => scan.timing.template = Some(TimingTemplate::Aggressive),
-            "-T5" => scan.timing.template = Some(TimingTemplate::Insane),
             "--min-hostgroup" => {
                 scan.timing.min_hostgroup =
                     Some(Self::parse_number(Self::get_next_value(iter, flag)?, flag)?)
@@ -300,7 +303,19 @@ impl NmapParser {
             "--defeat-rst-ratelimit" => scan.timing.defeat_rst_ratelimit = true,
             "--defeat-icmp-ratelimit" => scan.timing.defeat_icmp_ratelimit = true,
             "--nsock-engine" => {
-                scan.timing.nsock_engine = Some(Self::get_next_value(iter, flag)?.clone())
+                let val = Self::get_next_value(iter, flag)?;
+                scan.timing.nsock_engine = Some(
+                    NsockEngine::from_str(val)
+                        .map_err(|_| ParseError::InvalidValue(flag.to_string(), val.clone()))?,
+                );
+            }
+            f if f.starts_with("-T") && f.len() == 3 => {
+                let digit = &f[2..3];
+                if let Ok(index) = digit.parse::<usize>() {
+                    scan.timing.template = TimingTemplate::from_index(index);
+                } else {
+                    return Err(ParseError::InvalidFlag(f.to_string()));
+                }
             }
 
             // Firewall/IDS evasion
@@ -346,6 +361,12 @@ impl NmapParser {
             "--spoof-mac" => {
                 scan.evasion.spoof_mac = Some(Self::get_next_value(iter, flag)?.clone())
             }
+            "--proxies" => {
+                scan.evasion.proxies = Self::get_next_value(iter, flag)?
+                    .split(',')
+                    .map(String::from)
+                    .collect()
+            }
             "--badsum" => scan.evasion.badsum = true,
             "--adler32" => scan.evasion.adler32 = true,
 
@@ -372,6 +393,7 @@ impl NmapParser {
             "--resume" => {
                 scan.output.resume = Some(PathBuf::from(Self::get_next_value(iter, flag)?))
             }
+            "--noninteractive" => scan.output.noninteractive = true,
             "--stylesheet" => {
                 scan.output.stylesheet = Some(PathBuf::from(Self::get_next_value(iter, flag)?))
             }
@@ -384,6 +406,12 @@ impl NmapParser {
             "--datadir" => {
                 scan.misc.datadir = Some(PathBuf::from(Self::get_next_value(iter, flag)?))
             }
+            "--servicedb" => {
+                scan.misc.servicedb = Some(PathBuf::from(Self::get_next_value(iter, flag)?))
+            }
+            "--versiondb" => {
+                scan.misc.versiondb = Some(PathBuf::from(Self::get_next_value(iter, flag)?))
+            }
             "--send-eth" => scan.misc.send_eth = true,
             "--send-ip" => scan.misc.send_ip = true,
             "--privileged" => scan.misc.privileged = true,
@@ -391,8 +419,6 @@ impl NmapParser {
             "--release-memory" => scan.misc.release_memory = true,
             "-V" | "--version" => scan.misc.version = true,
             "-h" | "--help" => scan.misc.help = true,
-            "--unique" => scan.misc.unique = true,
-            "--log-errors" => scan.misc.log_errors = true,
 
             _ => return Err(ParseError::InvalidFlag(flag.to_string())),
         }
@@ -441,16 +467,14 @@ impl NmapParser {
 mod tests {
     use super::*;
 
-    use crate::scan::model::ScanTechnique;
-
     #[test]
     fn test_basic_scan() {
-        let result = NmapParser::parse("nmap -sS -p 80,443 192.168.1.1");
+        let result = NmapParser::parse("nmap -p 80,443 192.168.1.1");
         assert!(result.is_ok());
         let scan = result.unwrap();
         assert_eq!(scan.target_specification.targets, vec!["192.168.1.1"]);
-        assert!(matches!(scan.scan_technique, ScanTechnique::Syn));
-        assert_eq!(scan.ports.ports, Some("80,443".to_string()));
+        assert!(matches!(scan.scan_technique.tcp, Some(TcpScanType::Syn)));
+        assert_eq!(scan.port_specification.ports, Some("80,443".to_string()));
     }
 
     #[test]
@@ -492,13 +516,12 @@ mod tests {
 
     #[test]
     fn test_host_discovery() {
-        let result = NmapParser::parse("nmap -sL -sn -Pn -n 192.168.1.0/24");
+        let result = NmapParser::parse("nmap -sL -sn -Pn 192.168.1.0/24");
         assert!(result.is_ok());
         let scan = result.unwrap();
         assert!(scan.host_discovery.list_scan);
         assert!(scan.host_discovery.ping_scan);
         assert!(scan.host_discovery.skip_port_scan);
-        assert!(scan.host_discovery.no_resolve);
         assert_eq!(scan.target_specification.targets, vec!["192.168.1.0/24"]);
     }
 
@@ -507,9 +530,37 @@ mod tests {
         let result = NmapParser::parse("nmap -F -r --top-ports 10 127.0.0.1");
         assert!(result.is_ok());
         let scan = result.unwrap();
-        assert!(scan.ports.fast_mode);
-        assert!(scan.ports.consecutive_ports);
-        assert_eq!(scan.ports.top_ports, Some(10));
+        assert!(scan.port_specification.fast_mode);
+        assert!(scan.port_specification.consecutive_ports);
+        assert_eq!(scan.port_specification.top_ports, Some(10));
+    }
+
+    #[test]
+    fn test_target_specification() {
+        let cmd = "nmap 192.168.1.1 -iL targets.txt -iR 10 --exclude 192.168.1.2 --exclude-file exclude.txt -n -R --dns-servers 8.8.8.8";
+        let result = NmapParser::parse(cmd);
+        assert!(result.is_ok());
+        let scan = result.unwrap();
+        assert_eq!(scan.target_specification.targets, vec!["192.168.1.1"]);
+        assert_eq!(
+            scan.target_specification.input_file,
+            Some(PathBuf::from("targets.txt"))
+        );
+        assert_eq!(scan.target_specification.random_targets, Some(10));
+        assert_eq!(
+            scan.target_specification.exclude,
+            vec!["192.168.1.2".to_string()]
+        );
+        assert_eq!(
+            scan.target_specification.exclude_file,
+            Some(PathBuf::from("exclude.txt"))
+        );
+        assert!(scan.target_specification.no_resolve);
+        assert!(scan.target_specification.always_resolve);
+        assert_eq!(
+            scan.target_specification.dns_servers,
+            vec!["8.8.8.8".to_string()]
+        );
     }
 
     #[test]
@@ -558,10 +609,10 @@ mod tests {
         let result = NmapParser::parse(command);
         assert!(result.is_ok());
         let scan = result.unwrap();
-        assert!(matches!(scan.scan_technique, ScanTechnique::Syn));
+        assert!(matches!(scan.scan_technique.tcp, Some(TcpScanType::Syn)));
         assert!(scan.service_detection.enabled);
         assert!(scan.os_detection.enabled);
-        assert_eq!(scan.ports.ports, Some("-".to_string()));
+        assert_eq!(scan.port_specification.ports, Some("-".to_string()));
         assert!(matches!(
             scan.timing.template,
             Some(TimingTemplate::Aggressive)

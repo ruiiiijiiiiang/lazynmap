@@ -10,21 +10,21 @@ use crate::{
     scan::{
         builder::NmapCommandBuilder,
         flags::{FlagValue, NmapFlag},
-        model::{NmapScan, TimingTemplate},
+        model::{NmapScan, TcpScanType, TimingTemplate},
     },
     tui::{
         sections::{
-            host_discovery::render_host_discovery,
+            host_discovery::render_host_discovery, scan_technique::render_scan_technique,
             target_specification::render_target_specification, timing::render_timing,
         },
-        utils::initialize_text_inputs,
+        utils::{TcpScanTypeState, initialize_scan_type_state, initialize_text_inputs},
         widgets::text_input::{EventResult, InputValue, InputWidget},
     },
 };
 
 const SECTIONS: [(&str, u16); 10] = [
     ("Target Specification", 11),
-    ("Host Discovery", 11),
+    ("Host Discovery", 9),
     ("Scan Technique", 10),
     ("Port Specification", 10),
     ("Service Detection", 10),
@@ -43,6 +43,8 @@ pub struct App<'a> {
     pub editing_flag: Option<NmapFlag>,
     pub focused_radio_index: Option<usize>,
 
+    pub tcp_scan_type_state: TcpScanTypeState,
+
     scroll_state: ScrollbarState,
     scroll: u16,
     running: bool,
@@ -53,6 +55,7 @@ impl<'a> App<'a> {
         let total_height: u16 = SECTIONS.iter().map(|(_, height)| height).sum();
         let mut input_map = HashMap::new();
         initialize_text_inputs(scan, &mut input_map);
+        let tcp_scan_type_state = initialize_scan_type_state(scan);
 
         Self {
             scan,
@@ -61,6 +64,8 @@ impl<'a> App<'a> {
             focused_flag: NmapFlag::first(),
             editing_flag: None,
             focused_radio_index: None,
+
+            tcp_scan_type_state,
 
             scroll_state: ScrollbarState::new(total_height.into()),
             scroll: 0,
@@ -183,7 +188,15 @@ impl<'a> App<'a> {
                             horizontal: 1,
                         }),
                     ),
-                    2 => render_timing(
+                    2 => render_scan_technique(
+                        self,
+                        frame,
+                        visible_area.inner(Margin {
+                            vertical: 1,
+                            horizontal: 1,
+                        }),
+                    ),
+                    3 => render_timing(
                         self,
                         frame,
                         visible_area.inner(Margin {
@@ -246,6 +259,29 @@ impl<'a> App<'a> {
                     EventResult::Cancel => self.editing_flag = None,
                     _ => {}
                 };
+            } else if let Some(scan_type) = &self.tcp_scan_type_state.editing_scan_type {
+                if matches!(
+                    scan_type,
+                    TcpScanType::Idle(_) | TcpScanType::Ftp(_) | TcpScanType::Scanflags(_)
+                ) {
+                    let input = match scan_type {
+                        TcpScanType::Idle(_) => &mut self.tcp_scan_type_state.idle_input,
+                        TcpScanType::Ftp(_) => &mut self.tcp_scan_type_state.ftp_input,
+                        TcpScanType::Scanflags(_) => &mut self.tcp_scan_type_state.scanflags_input,
+                        _ => unreachable!(),
+                    };
+                    match input.handle_event(&event) {
+                        EventResult::Submit(InputValue::String(value)) => {
+                            self.scan.scan_technique.tcp =
+                                Some(scan_type.clone().with_value(value));
+                            self.tcp_scan_type_state.editing_scan_type = None;
+                        }
+                        EventResult::Cancel => {
+                            self.tcp_scan_type_state.editing_scan_type = None;
+                        }
+                        _ => {}
+                    }
+                }
             } else {
                 match key.code {
                     KeyCode::Char('q') => {
@@ -290,22 +326,38 @@ impl<'a> App<'a> {
                     },
                     KeyCode::Enter | KeyCode::Char(' ') => match flag_value {
                         FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
-                        FlagValue::VecString(_)
-                        | FlagValue::Path(_)
-                        | FlagValue::Int(_)
-                        | FlagValue::VecInt(_) => self.editing_flag = Some(self.focused_flag),
                         FlagValue::TimingTemplate(flag_value) => {
                             *flag_value = self
                                 .focused_radio_index
-                                .and_then(TimingTemplate::from_index)
-                                .and_then(|new_val| {
-                                    if Some(new_val) == *flag_value {
-                                        None
-                                    } else {
-                                        Some(new_val)
-                                    }
-                                });
+                                .and_then(TimingTemplate::from_index);
                         }
+                        FlagValue::TcpScanType(flag_value) => match self.focused_radio_index {
+                            Some(radio_index) if radio_index <= 8 => {
+                                *flag_value = TcpScanType::from_index(radio_index);
+                            }
+                            Some(9) => {
+                                let input_value = self.tcp_scan_type_state.idle_input.content();
+                                let scan_type = Some(TcpScanType::Idle(input_value.to_string()));
+                                *flag_value = scan_type.clone();
+                                self.tcp_scan_type_state.editing_scan_type = scan_type;
+                            }
+                            Some(10) => {
+                                let input_value = self.tcp_scan_type_state.ftp_input.content();
+                                let scan_type = Some(TcpScanType::Ftp(input_value.to_string()));
+                                *flag_value = scan_type.clone();
+                                self.tcp_scan_type_state.editing_scan_type = scan_type;
+                            }
+                            Some(11) => {
+                                let input_value =
+                                    self.tcp_scan_type_state.scanflags_input.content();
+                                let scan_type =
+                                    Some(TcpScanType::Scanflags(input_value.to_string()));
+                                *flag_value = scan_type.clone();
+                                self.tcp_scan_type_state.editing_scan_type = scan_type;
+                            }
+                            _ => (),
+                        },
+                        _ => self.editing_flag = Some(self.focused_flag),
                     },
                     _ => {}
                 }
@@ -315,13 +367,12 @@ impl<'a> App<'a> {
     }
 
     fn scroll_up(&mut self) {
-        self.focused_section = self.focused_section.saturating_sub(1);
         self.scroll = self.scroll.saturating_sub(SECTIONS[self.focused_section].1);
         self.scroll_state = self.scroll_state.position(self.scroll as usize);
+        self.focused_section = self.focused_section.saturating_sub(1);
     }
 
     fn scroll_down(&mut self) {
-        self.focused_section = (self.focused_section + 1).min(SECTIONS.len() - 1);
         self.scroll = (self.scroll + SECTIONS[self.focused_section].1).min(
             SECTIONS
                 .iter()
@@ -330,5 +381,6 @@ impl<'a> App<'a> {
                 .sum(),
         );
         self.scroll_state = self.scroll_state.position(self.scroll as usize);
+        self.focused_section = (self.focused_section + 1).min(SECTIONS.len() - 1);
     }
 }

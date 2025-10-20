@@ -5,134 +5,93 @@ use ratatui::{
 
 use crate::{
     scan::flags::NmapFlag,
-    tui::{app::App, utils::render_checkbox},
+    tui::{
+        app::App,
+        utils::{render_checkbox, render_input},
+    },
 };
 
 pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     let row_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-        ])
+        .constraints([Constraint::Length(1); 4])
+        .spacing(1)
         .split(area);
 
     // Row 0
     let row_0_col_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .flex(Flex::SpaceBetween)
-        .constraints([
-            Constraint::Length(30),
-            Constraint::Length(30),
-            Constraint::Length(30),
-            Constraint::Length(30),
-        ])
+        .constraints([Constraint::Percentage(33); 3])
+        .spacing(1)
         .split(row_chunks[0]);
 
-    for (index, &flag) in [
+    for (&flag, &area) in [
         NmapFlag::ListScan,
         NmapFlag::PingScan,
         NmapFlag::SkipPortScan,
-        NmapFlag::Traceroute,
     ]
     .iter()
-    .enumerate()
+    .zip(row_0_col_chunks.iter())
     {
-        render_checkbox(app, flag, frame, row_0_col_chunks[index]);
+        render_checkbox(app, flag, frame, area);
     }
 
     // Row 1
     let row_1_col_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .flex(Flex::SpaceBetween)
-        .constraints([
-            Constraint::Length(60),
-            Constraint::Length(60),
-            Constraint::Length(60),
-            Constraint::Length(60),
-        ])
+        .constraints([Constraint::Percentage(25); 4])
+        .spacing(1)
         .split(row_chunks[1]);
 
-    for (index, &flag) in [
+    for (&flag, &area) in [
         NmapFlag::SynDiscovery,
         NmapFlag::AckDiscovery,
         NmapFlag::UdpDiscovery,
         NmapFlag::SctpDiscovery,
     ]
     .iter()
-    .enumerate()
+    .zip(row_1_col_chunks.iter())
     {
-        app.input_map.get_mut(&flag).unwrap().render(
-            row_1_col_chunks[index],
-            frame.buffer_mut(),
-            app.focused_flag == flag,
-            app.editing_flag == Some(flag),
-        );
+        render_input(app, flag, frame, area);
     }
 
     // Row 2
     let row_2_col_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .flex(Flex::SpaceBetween)
-        .constraints([
-            Constraint::Length(30),
-            Constraint::Length(30),
-            Constraint::Length(30),
-            Constraint::Length(60),
-        ])
+        .constraints([Constraint::Percentage(25); 4])
+        .spacing(1)
         .split(row_chunks[2]);
 
-    for (index, &flag) in [
+    for (&flag, &area) in [
         NmapFlag::IcmpEcho,
         NmapFlag::IcmpTimestamp,
         NmapFlag::IcmpNetmask,
     ]
     .iter()
-    .enumerate()
+    .zip(row_2_col_chunks.iter())
     {
-        render_checkbox(app, flag, frame, row_2_col_chunks[index]);
+        render_checkbox(app, flag, frame, area);
     }
-    app.input_map
-        .get_mut(&NmapFlag::IpProtocolPing)
-        .unwrap()
-        .render(
-            row_2_col_chunks[3],
-            frame.buffer_mut(),
-            app.focused_flag == NmapFlag::IpProtocolPing,
-            app.editing_flag == Some(NmapFlag::IpProtocolPing),
-        );
+    render_input(app, NmapFlag::IpProtocolPing, frame, row_2_col_chunks[3]);
 
     // Row 3
     let row_3_col_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .flex(Flex::SpaceBetween)
-        .constraints([
-            Constraint::Length(30),
-            Constraint::Length(30),
-            Constraint::Length(30),
-            Constraint::Length(60),
-        ])
+        .constraints([Constraint::Percentage(33); 3])
+        .spacing(1)
         .split(row_chunks[3]);
-    for (index, &flag) in [
-        NmapFlag::SystemDns,
-        NmapFlag::NoResolve,
-        NmapFlag::AlwaysResolve,
+    for (&flag, &area) in [
+        NmapFlag::DisableArpPing,
+        NmapFlag::DiscoverIgnoreRst,
+        NmapFlag::Traceroute,
     ]
     .iter()
-    .enumerate()
+    .zip(row_3_col_chunks.iter())
     {
-        render_checkbox(app, flag, frame, row_3_col_chunks[index]);
+        render_checkbox(app, flag, frame, area);
     }
-
-    app.input_map
-        .get_mut(&NmapFlag::DnsServers)
-        .unwrap()
-        .render(
-            row_3_col_chunks[3],
-            frame.buffer_mut(),
-            app.focused_flag == NmapFlag::DnsServers,
-            app.editing_flag == Some(NmapFlag::DnsServers),
-        );
 }

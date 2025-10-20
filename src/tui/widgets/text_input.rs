@@ -357,10 +357,10 @@ pub struct TextInput<T> {
     buffer: InputBuffer,
     parser: Box<dyn Parser<T>>,
     label: Option<String>,
-    placeholder: Option<String>,
-    focused_style: Style,
-    editing_style: Style,
-    default_style: Style,
+    pub placeholder: Option<String>,
+    // focused_style: Style,
+    // editing_style: Style,
+    // default_style: Style,
     error: Option<String>,
 }
 
@@ -371,11 +371,11 @@ impl<T> TextInput<T> {
             parser: Box::new(parser),
             label: None,
             placeholder: None,
-            focused_style: Style::default().fg(Color::Yellow),
-            editing_style: Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-            default_style: Style::default().fg(Color::Gray),
+            // focused_style: Style::default().fg(Color::Yellow),
+            // editing_style: Style::default()
+            //     .fg(Color::Cyan)
+            //     .add_modifier(Modifier::BOLD),
+            // default_style: Style::default().fg(Color::Gray),
             error: None,
         }
     }
@@ -450,15 +450,17 @@ impl<T> TextInput<T> {
     }
 
     pub fn render(&self, area: Rect, buf: &mut Buffer, focused: bool, editing: bool) {
-        let style = if editing {
-            self.editing_style
+        let (bg_color, fg_color, label_color) = if editing {
+            (Color::Cyan, Color::Black, Color::Cyan)
         } else if focused {
-            self.focused_style
+            (Color::Yellow, Color::Black, Color::Yellow)
         } else {
-            self.default_style
+            (Color::Gray, Color::Black, Color::Gray)
         };
 
+        // Calculate areas for label and input (side by side)
         let (label_area, input_area) = if let Some(label) = &self.label {
+            // Calculate label width (label text + 2 spaces for padding)
             let label_width = label.len() as u16 + 2;
 
             let chunks = Layout::default()
@@ -473,67 +475,70 @@ impl<T> TextInput<T> {
             (None, area)
         };
 
+        // Render label if present
         if let (Some(label_area), Some(label)) = (label_area, &self.label) {
-            let label_y = label_area.y + (label_area.height / 2);
-            let label_text = format!("{}: ", label);
-
-            if label_y < label_area.y + label_area.height {
-                let label_line = Line::from(Span::styled(label_text, style));
-                let label_centered = Rect {
-                    x: label_area.x,
-                    y: label_y,
-                    width: label_area.width,
-                    height: 1,
-                };
-                Paragraph::new(label_line).render(label_centered, buf);
+            let label_style = Style::default().fg(label_color);
+            if editing {
+                let _ = label_style.add_modifier(Modifier::BOLD);
             }
+
+            let label_text = format!("{}: ", label);
+            let label_line = Line::from(Span::styled(label_text, label_style));
+            Paragraph::new(label_line).render(label_area, buf);
         }
 
-        let block = Block::default().borders(Borders::ALL).style(style);
-
-        let inner = block.inner(input_area);
-        block.render(input_area, buf);
+        // Fill the input area with background color
+        for x in input_area.left()..input_area.right() {
+            for y in input_area.top()..input_area.bottom() {
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.set_bg(bg_color);
+                }
+            }
+        }
 
         // Render text or placeholder
-        let text = if self.buffer.content().is_empty() {
-            let placeholder_text = self.placeholder.as_deref().unwrap_or("");
-            Line::from(Span::styled(
-                placeholder_text,
-                Style::default().fg(Color::DarkGray),
-            ))
+        let display_text = if self.buffer.content().is_empty() {
+            self.placeholder.as_deref().unwrap_or("")
         } else {
-            Line::from(self.buffer.content())
+            self.buffer.content()
         };
 
-        let paragraph = Paragraph::new(text);
-        paragraph.render(inner, buf);
+        let text_style = if self.buffer.content().is_empty() {
+            Style::default().fg(Color::DarkGray).bg(bg_color)
+        } else {
+            Style::default().fg(fg_color).bg(bg_color)
+        };
 
-        // Render cursor ONLY if editing (not just selected)
-        if editing && inner.width > 0 {
-            let cursor_pos = self.buffer.cursor_position();
-            let cursor_x = inner.x + cursor_pos as u16;
-            if cursor_x < inner.x + inner.width
-                && let Some(cell) = buf.cell_mut((cursor_x, inner.y))
-            {
-                cell.set_style(Style::default().add_modifier(Modifier::REVERSED));
-            }
+        // Render text with padding
+        if input_area.width > 0 && input_area.height > 0 {
+            let text_to_display = if display_text.len() > input_area.width as usize {
+                // Truncate if too long
+                &display_text[..input_area.width as usize]
+            } else {
+                display_text
+            };
+
+            let text_line = Line::from(Span::styled(text_to_display, text_style));
+            Paragraph::new(text_line).render(input_area, buf);
         }
 
-        // Render error if any
-        if let Some(error) = &self.error
-            && input_area.height > 3
-        {
-            let error_area = Rect {
-                x: input_area.x,
-                y: input_area.y + input_area.height - 1,
-                width: input_area.width,
-                height: 1,
-            };
-            let error_text = Line::from(Span::styled(
-                format!(" Error: {}", error),
-                Style::default().fg(Color::Red),
-            ));
-            Paragraph::new(error_text).render(error_area, buf);
+        // Render cursor if editing
+        if editing && input_area.width > 0 && input_area.height > 0 {
+            let cursor_pos = self
+                .buffer
+                .cursor_position()
+                .min(input_area.width as usize - 1);
+            let cursor_x = input_area.x + cursor_pos as u16;
+            if cursor_x < input_area.x + input_area.width
+                && let Some(cell) = buf.cell_mut((cursor_x, input_area.y))
+            {
+                cell.set_style(
+                    Style::default()
+                        .fg(bg_color)
+                        .bg(fg_color)
+                        .add_modifier(Modifier::BOLD),
+                );
+            }
         }
     }
 
@@ -796,7 +801,7 @@ impl CompletingInput {
             return;
         };
 
-        let input_height = 3;
+        let input_height = 1;
         let dropdown_items = self
             .completer
             .suggestions
@@ -864,8 +869,11 @@ impl CompletingInput {
             })
             .collect();
 
-        let list =
-            List::new(items).block(Block::default().borders(Borders::ALL).title("Suggestions"));
+        let list = List::new(items).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Select a file"),
+        );
 
         list.render(area, buf);
     }

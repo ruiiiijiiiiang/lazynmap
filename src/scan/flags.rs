@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use strum::{EnumCount, IntoEnumIterator};
 use strum_macros::{Display, EnumIter, EnumMessage};
 
-use crate::scan::model::{NmapScan, TimingTemplate};
+use crate::scan::model::{NmapScan, TcpScanType, TimingTemplate};
 
 #[derive(Debug, Display, Clone, Copy, Eq, Hash, PartialEq, EnumIter, EnumMessage)]
 pub enum NmapFlag {
@@ -29,6 +29,18 @@ pub enum NmapFlag {
         message = "Number of random targets"
     )]
     RandomTargets,
+    #[strum(to_string = "Unique (--unique)")]
+    Unique,
+    #[strum(to_string = "No resolve (-n)")]
+    NoResolve,
+    #[strum(to_string = "Always resolve (-R)")]
+    AlwaysResolve,
+    #[strum(to_string = "Resolve all (--resolve-all)")]
+    ResolveAll,
+    #[strum(to_string = "System DNS (--system-dns)")]
+    SystemDns,
+    #[strum(to_string = "DNS servers (--dns-servers)", message = "Server list")]
+    DnsServers,
 
     // Host discovery
     #[strum(to_string = "List scan (-sL)")]
@@ -37,15 +49,13 @@ pub enum NmapFlag {
     PingScan,
     #[strum(to_string = "Skip port scan (-Pn)")]
     SkipPortScan,
-    #[strum(to_string = "Traceroute (--traceroute)")]
-    Traceroute,
-    #[strum(to_string = "SYN disccovery (-PS)", message = "Port list")]
+    #[strum(to_string = "SYN (-PS)", message = "Port list")]
     SynDiscovery,
-    #[strum(to_string = "ACK disccovery (-PA)", message = "Port list")]
+    #[strum(to_string = "ACK (-PA)", message = "Port list")]
     AckDiscovery,
-    #[strum(to_string = "UDP disccovery (-PU)", message = "Port list")]
+    #[strum(to_string = "UDP (-PU)", message = "Port list")]
     UdpDiscovery,
-    #[strum(to_string = "SCTP disccovery (-PY)", message = "Port list")]
+    #[strum(to_string = "SCTP (-PY)", message = "Port list")]
     SctpDiscovery,
     #[strum(to_string = "ICMP echo (-PE)")]
     IcmpEcho,
@@ -55,26 +65,46 @@ pub enum NmapFlag {
     IcmpNetmask,
     #[strum(to_string = "IP protocol ping (-PO)", message = "Protocol list")]
     IpProtocolPing,
-    #[strum(to_string = "System DNS (--system-dns)")]
-    SystemDns,
-    #[strum(to_string = "No resolve (-n)")]
-    NoResolve,
-    #[strum(to_string = "Always Resolve (-R)")]
-    AlwaysResolve,
-    #[strum(to_string = "DNS servers (--dns-servers)", message = "Server list")]
-    DnsServers,
+    #[strum(to_string = "Disable ARP ping (--disable-arp-ping)")]
+    DisableArpPing,
+    #[strum(to_string = "Discover ignore RST (--discover-ignore-rst)")]
+    DiscoverIgnoreRst,
+    #[strum(to_string = "Traceroute (--traceroute)")]
+    Traceroute,
 
-    #[strum(to_string = "Timing template")]
+    // Scan technique
+    #[strum(to_string = "TCP scan")]
+    TcpScan,
+    // #[strum(to_string = "Idle (-sI)", message = "Zombie host")]
+    // Idle,
+    // #[strum(to_string = "FTP (-b)", message = "FTP relay host")]
+    // Ftp,
+    // #[strum(to_string = "Flags (--scanflags)", message = "Custom TCP scan")]
+    // Scanflags,
+
+    // Timing
+    #[strum(to_string = "Timing template (-T)")]
     TimingTemplate,
+
+    #[strum(to_string = "Top ports (--top-ports)", message = "Number of ports")]
+    TopPorts,
 }
 
 pub enum FlagValue<'a> {
+    // Base types
     Bool(&'a mut bool),
     Int(&'a mut Option<u32>),
+    String(&'a mut Option<String>),
     VecInt(&'a mut Vec<u32>),
     VecString(&'a mut Vec<String>),
     Path(&'a mut Option<PathBuf>),
+
+    // Enum types
+    TcpScanType(&'a mut Option<TcpScanType>),
     TimingTemplate(&'a mut Option<TimingTemplate>),
+
+    // Used for handling special cases of mutually exclusive TCP scan types
+    RequiredString(&'a mut String),
 }
 
 impl NmapFlag {
@@ -88,12 +118,21 @@ impl NmapFlag {
             NmapFlag::RandomTargets => {
                 FlagValue::Int(&mut scan.target_specification.random_targets)
             }
+            NmapFlag::Unique => FlagValue::Bool(&mut scan.target_specification.unique),
+            NmapFlag::NoResolve => FlagValue::Bool(&mut scan.target_specification.no_resolve),
+            NmapFlag::AlwaysResolve => {
+                FlagValue::Bool(&mut scan.target_specification.always_resolve)
+            }
+            NmapFlag::ResolveAll => FlagValue::Bool(&mut scan.target_specification.resolve_all),
+            NmapFlag::SystemDns => FlagValue::Bool(&mut scan.target_specification.system_dns),
+            NmapFlag::DnsServers => {
+                FlagValue::VecString(&mut scan.target_specification.dns_servers)
+            }
 
             // Host discovery
             NmapFlag::ListScan => FlagValue::Bool(&mut scan.host_discovery.list_scan),
             NmapFlag::PingScan => FlagValue::Bool(&mut scan.host_discovery.ping_scan),
             NmapFlag::SkipPortScan => FlagValue::Bool(&mut scan.host_discovery.skip_port_scan),
-            NmapFlag::Traceroute => FlagValue::Bool(&mut scan.host_discovery.traceroute),
             NmapFlag::SynDiscovery => FlagValue::VecInt(&mut scan.host_discovery.syn_discovery),
             NmapFlag::AckDiscovery => FlagValue::VecInt(&mut scan.host_discovery.ack_discovery),
             NmapFlag::UdpDiscovery => FlagValue::VecInt(&mut scan.host_discovery.udp_discovery),
@@ -104,12 +143,48 @@ impl NmapFlag {
             NmapFlag::IpProtocolPing => {
                 FlagValue::VecInt(&mut scan.host_discovery.ip_protocol_ping)
             }
-            NmapFlag::SystemDns => FlagValue::Bool(&mut scan.host_discovery.system_dns),
-            NmapFlag::NoResolve => FlagValue::Bool(&mut scan.host_discovery.no_resolve),
-            NmapFlag::AlwaysResolve => FlagValue::Bool(&mut scan.host_discovery.always_resolve),
-            NmapFlag::DnsServers => FlagValue::VecString(&mut scan.host_discovery.dns_servers),
+            NmapFlag::DisableArpPing => FlagValue::Bool(&mut scan.host_discovery.disable_arp_ping),
+            NmapFlag::DiscoverIgnoreRst => {
+                FlagValue::Bool(&mut scan.host_discovery.discover_ignore_rst)
+            }
+            NmapFlag::Traceroute => FlagValue::Bool(&mut scan.host_discovery.traceroute),
 
+            // Scan technique
+            NmapFlag::TcpScan => FlagValue::TcpScanType(&mut scan.scan_technique.tcp),
+            // NmapFlag::Scanflags => {
+            //     Self::ensure_tcp_variant(
+            //         &mut scan.scan_technique.tcp,
+            //         TcpScanType::Scanflags(String::new()),
+            //     );
+            //     match scan.scan_technique.tcp.as_mut().unwrap() {
+            //         TcpScanType::Scanflags(s) => FlagValue::RequiredString(s),
+            //         _ => unreachable!(),
+            //     }
+            // }
+            // NmapFlag::Idle => {
+            //     Self::ensure_tcp_variant(
+            //         &mut scan.scan_technique.tcp,
+            //         TcpScanType::Idle(String::new()),
+            //     );
+            //     match scan.scan_technique.tcp.as_mut().unwrap() {
+            //         TcpScanType::Idle(s) => FlagValue::RequiredString(s),
+            //         _ => unreachable!(),
+            //     }
+            // }
+            // NmapFlag::Ftp => {
+            //     Self::ensure_tcp_variant(
+            //         &mut scan.scan_technique.tcp,
+            //         TcpScanType::Ftp(String::new()),
+            //     );
+            //     match scan.scan_technique.tcp.as_mut().unwrap() {
+            //         TcpScanType::Ftp(s) => FlagValue::RequiredString(s),
+            //         _ => unreachable!(),
+            //     }
+            // }
+
+            // Timing
             NmapFlag::TimingTemplate => FlagValue::TimingTemplate(&mut scan.timing.template),
+            NmapFlag::TopPorts => FlagValue::Int(&mut scan.port_specification.top_ports),
         }
     }
 
@@ -134,7 +209,24 @@ impl NmapFlag {
     pub fn get_variant_count(self) -> Option<usize> {
         match self {
             NmapFlag::TimingTemplate => Some(TimingTemplate::COUNT),
+            NmapFlag::TcpScan => Some(TcpScanType::COUNT),
             _ => None,
         }
     }
+
+    // fn ensure_tcp_variant(tcp: &mut Option<TcpScanType>, variant: TcpScanType) {
+    //     let needs_set = match tcp {
+    //         None => true,
+    //         Some(TcpScanType::Scanflags(_)) if matches!(variant, TcpScanType::Scanflags(_)) => {
+    //             false
+    //         }
+    //         Some(TcpScanType::Idle(_)) if matches!(variant, TcpScanType::Idle(_)) => false,
+    //         Some(TcpScanType::Ftp(_)) if matches!(variant, TcpScanType::Ftp(_)) => false,
+    //         Some(_) => true,
+    //     };
+    //
+    //     if needs_set {
+    //         *tcp = Some(variant);
+    //     }
+    // }
 }

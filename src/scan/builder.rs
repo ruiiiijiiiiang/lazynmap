@@ -2,8 +2,8 @@ use std::fmt::Write;
 
 use crate::scan::model::{
     EvasionSpoofing, HostDiscovery, MiscOptions, NmapScan, OsDetection, OutputOptions,
-    PortSpecification, ScanTechnique, ScriptScan, ServiceDetection, TargetSpecification,
-    TimingPerformance,
+    PortSpecification, ScanTechnique, ScriptScan, SctpScanType, ServiceDetection,
+    TargetSpecification, TcpScanType, TimingPerformance,
 };
 
 /// Builder for converting NmapScan structs into command strings
@@ -21,16 +21,16 @@ impl NmapCommandBuilder {
         Self::build_scan_technique(&mut cmd, &scan.scan_technique);
 
         // Port specification
-        Self::build_port_specification(&mut cmd, &scan.ports);
+        Self::build_port_specification(&mut cmd, &scan.port_specification);
 
         // Service/Version detection
         Self::build_service_detection(&mut cmd, &scan.service_detection);
 
-        // Script scan
-        Self::build_script_scan(&mut cmd, &scan.script_scan);
-
         // OS detection
         Self::build_os_detection(&mut cmd, &scan.os_detection);
+
+        // Script scan
+        Self::build_script_scan(&mut cmd, &scan.script_scan);
 
         // Timing and performance
         Self::build_timing_performance(&mut cmd, &scan.timing);
@@ -84,45 +84,52 @@ impl NmapCommandBuilder {
         if !hd.ip_protocol_ping.is_empty() {
             write!(cmd, " -PO{}", Self::format_int_list(&hd.ip_protocol_ping)).ok();
         }
-        if hd.no_resolve {
-            cmd.push_str(" -n");
+        if hd.disable_arp_ping {
+            cmd.push_str(" --disable-arp-ping");
         }
-        if hd.always_resolve {
-            cmd.push_str(" -R");
+        if hd.discover_ignore_rst {
+            cmd.push_str(" --discover_ignore_rst");
         }
         if hd.traceroute {
             cmd.push_str(" --traceroute");
         }
-        if !hd.dns_servers.is_empty() {
-            write!(cmd, " --dns-servers {}", hd.dns_servers.join(",")).ok();
-        }
-        if hd.system_dns {
-            cmd.push_str(" --system-dns");
-        }
     }
 
     fn build_scan_technique(cmd: &mut String, st: &ScanTechnique) {
-        match st {
-            ScanTechnique::Syn => cmd.push_str(" -sS"),
-            ScanTechnique::Connect => cmd.push_str(" -sT"),
-            ScanTechnique::Ack => cmd.push_str(" -sA"),
-            ScanTechnique::Window => cmd.push_str(" -sW"),
-            ScanTechnique::Maimon => cmd.push_str(" -sM"),
-            ScanTechnique::Udp => cmd.push_str(" -sU"),
-            ScanTechnique::TcpNull => cmd.push_str(" -sN"),
-            ScanTechnique::Fin => cmd.push_str(" -sF"),
-            ScanTechnique::Xmas => cmd.push_str(" -sX"),
-            ScanTechnique::Scanflags(flags) => {
-                write!(cmd, " --scanflags {}", Self::quote_if_needed(flags)).ok();
+        // TCP scan type
+        if let Some(ref tcp) = st.tcp {
+            match tcp {
+                TcpScanType::Syn => cmd.push_str(" -sS"),
+                TcpScanType::Connect => cmd.push_str(" -sT"),
+                TcpScanType::Ack => cmd.push_str(" -sA"),
+                TcpScanType::Window => cmd.push_str(" -sW"),
+                TcpScanType::Maimon => cmd.push_str(" -sM"),
+                TcpScanType::Null => cmd.push_str(" -sN"),
+                TcpScanType::Fin => cmd.push_str(" -sF"),
+                TcpScanType::Xmas => cmd.push_str(" -sX"),
+                TcpScanType::Scanflags(flags) => {
+                    write!(cmd, " --scanflags {}", Self::quote_if_needed(flags)).ok();
+                }
+                TcpScanType::Idle(zombie) => {
+                    write!(cmd, " -sI {}", Self::quote_if_needed(zombie)).ok();
+                }
+                TcpScanType::IpProtocol => cmd.push_str(" -sO"),
+                TcpScanType::Ftp(relay) => {
+                    write!(cmd, " -b {}", Self::quote_if_needed(relay)).ok();
+                }
             }
-            ScanTechnique::Idle(zombie) => {
-                write!(cmd, " -sI {}", Self::quote_if_needed(zombie)).ok();
-            }
-            ScanTechnique::SctpInit => cmd.push_str(" -sY"),
-            ScanTechnique::SctpCookie => cmd.push_str(" -sZ"),
-            ScanTechnique::IpProtocol => cmd.push_str(" -sO"),
-            ScanTechnique::Ftp(relay) => {
-                write!(cmd, " -b {}", Self::quote_if_needed(relay)).ok();
+        }
+
+        // UDP scan
+        if st.udp {
+            cmd.push_str(" -sU");
+        }
+
+        // SCTP scan type
+        if let Some(ref sctp) = st.sctp {
+            match sctp {
+                SctpScanType::Init => cmd.push_str(" -sY"),
+                SctpScanType::Cookie => cmd.push_str(" -sZ"),
             }
         }
     }
@@ -160,6 +167,9 @@ impl NmapCommandBuilder {
         if let Some(intensity) = sd.intensity {
             write!(cmd, " --version-intensity {}", intensity).ok();
         }
+        if sd.allports {
+            cmd.push_str(" --allports");
+        }
         if sd.light {
             cmd.push_str(" --version-light");
         }
@@ -168,6 +178,21 @@ impl NmapCommandBuilder {
         }
         if sd.trace {
             cmd.push_str(" --version-trace");
+        }
+    }
+
+    fn build_os_detection(cmd: &mut String, od: &OsDetection) {
+        if od.enabled {
+            cmd.push_str(" -O");
+        }
+        if od.limit {
+            cmd.push_str(" --osscan-limit");
+        }
+        if od.guess {
+            cmd.push_str(" --osscan-guess");
+        }
+        if let Some(max_retries) = od.max_retries {
+            write!(cmd, " --max-os-tries {}", max_retries).ok();
         }
     }
 
@@ -192,21 +217,6 @@ impl NmapCommandBuilder {
         }
         if let Some(ref help) = ss.script_help {
             write!(cmd, " --script-help {}", Self::quote_if_needed(help)).ok();
-        }
-    }
-
-    fn build_os_detection(cmd: &mut String, od: &OsDetection) {
-        if od.enabled {
-            cmd.push_str(" -O");
-        }
-        if od.limit {
-            cmd.push_str(" --osscan-limit");
-        }
-        if od.guess {
-            cmd.push_str(" --osscan-guess");
-        }
-        if let Some(max_retries) = od.max_retries {
-            write!(cmd, " --max-os-tries {}", max_retries).ok();
         }
     }
 
@@ -283,7 +293,7 @@ impl NmapCommandBuilder {
             cmd.push_str(" --defeat-icmp-ratelimit");
         }
         if let Some(ref engine) = tp.nsock_engine {
-            write!(cmd, " --nsock-engine {}", Self::quote_if_needed(engine)).ok();
+            write!(cmd, " --nsock-engine {}", engine).ok();
         }
     }
 
@@ -326,6 +336,9 @@ impl NmapCommandBuilder {
         }
         if let Some(ref spoof_mac) = es.spoof_mac {
             write!(cmd, " --spoof-mac {}", Self::quote_if_needed(spoof_mac)).ok();
+        }
+        if !es.proxies.is_empty() {
+            write!(cmd, " --proxies {}", es.proxies.join(",")).ok();
         }
         if es.badsum {
             cmd.push_str(" --badsum");
@@ -397,6 +410,9 @@ impl NmapCommandBuilder {
         if let Some(ref resume) = out.resume {
             write!(cmd, " --resume {}", Self::quote_path(resume)).ok();
         }
+        if out.noninteractive {
+            cmd.push_str(" --noninteractive");
+        }
         if let Some(ref stylesheet) = out.stylesheet {
             write!(cmd, " --stylesheet {}", Self::quote_path(stylesheet)).ok();
         }
@@ -417,6 +433,12 @@ impl NmapCommandBuilder {
         }
         if let Some(ref datadir) = misc.datadir {
             write!(cmd, " --datadir {}", Self::quote_path(datadir)).ok();
+        }
+        if let Some(ref servicedb) = misc.servicedb {
+            write!(cmd, " --servicedb {}", Self::quote_path(servicedb)).ok();
+        }
+        if let Some(ref versiondb) = misc.versiondb {
+            write!(cmd, " --versiondb {}", Self::quote_path(versiondb)).ok();
         }
         if misc.send_eth {
             cmd.push_str(" --send-eth");
@@ -439,12 +461,6 @@ impl NmapCommandBuilder {
         if misc.help {
             cmd.push_str(" -h");
         }
-        if misc.unique {
-            cmd.push_str(" --unique");
-        }
-        if misc.log_errors {
-            cmd.push_str(" --log-errors");
-        }
     }
 
     fn build_target_specification(cmd: &mut String, ts: &TargetSpecification) {
@@ -459,6 +475,24 @@ impl NmapCommandBuilder {
         }
         if let Some(ref exclude_file) = ts.exclude_file {
             write!(cmd, " --exclude-file {}", Self::quote_path(exclude_file)).ok();
+        }
+        if ts.no_resolve {
+            cmd.push_str(" -n");
+        }
+        if ts.always_resolve {
+            cmd.push_str(" -R");
+        }
+        if ts.resolve_all {
+            cmd.push_str(" --resolve-all");
+        }
+        if ts.unique {
+            cmd.push_str(" --unique");
+        }
+        if ts.system_dns {
+            cmd.push_str(" --system-dns");
+        }
+        if !ts.dns_servers.is_empty() {
+            write!(cmd, " --dns-servers {}", ts.dns_servers.join(",")).ok();
         }
 
         // Add targets at the end
@@ -502,8 +536,8 @@ mod tests {
     fn test_basic_scan() {
         let mut scan = NmapScan::new();
         scan.target_specification.targets = vec!["192.168.1.1".to_string()];
-        scan.scan_technique = ScanTechnique::Syn;
-        scan.ports.ports = Some("80,443".to_string());
+        scan.scan_technique.tcp = Some(TcpScanType::Syn);
+        scan.port_specification.ports = Some("80,443".to_string());
 
         let cmd = NmapCommandBuilder::build(&scan);
         assert!(cmd.contains("-sS"));
@@ -572,9 +606,9 @@ mod tests {
     fn test_complex_scan() {
         let mut scan = NmapScan::new();
         scan.target_specification.targets = vec!["192.168.1.0/24".to_string()];
-        scan.scan_technique = ScanTechnique::Syn;
+        scan.scan_technique.tcp = Some(TcpScanType::Syn);
         scan.host_discovery.skip_port_scan = true;
-        scan.ports.ports = Some("-".to_string());
+        scan.port_specification.ports = Some("-".to_string());
         scan.timing.template = Some(TimingTemplate::Aggressive);
         scan.script_scan.scripts = vec!["vuln".to_string()];
         scan.output.xml = Some(PathBuf::from("output.xml"));
@@ -609,8 +643,6 @@ mod tests {
         scan.host_discovery.ack_discovery = vec![22];
         scan.host_discovery.udp_discovery = vec![53];
         scan.host_discovery.icmp_echo = true;
-        scan.host_discovery.no_resolve = true;
-        scan.host_discovery.dns_servers = vec!["8.8.8.8".to_string(), "1.1.1.1".to_string()];
 
         let cmd = NmapCommandBuilder::build(&scan);
         assert!(cmd.contains(" -sL"));
@@ -620,18 +652,16 @@ mod tests {
         assert!(cmd.contains(" -PU53"));
         assert!(cmd.contains(" -PE"));
         assert!(cmd.contains(" 192.168.1.0/24"));
-        assert!(cmd.contains(" -n"));
-        assert!(cmd.contains(" --dns-servers 8.8.8.8,1.1.1.1"));
     }
 
     #[test]
     fn test_port_specification_flags() {
         let mut scan = NmapScan::new();
         scan.target_specification.targets = vec!["localhost".to_string()];
-        scan.ports.fast_mode = true;
-        scan.ports.consecutive_ports = true;
-        scan.ports.top_ports = Some(100);
-        scan.ports.exclude_ports = Some("22,80".to_string());
+        scan.port_specification.fast_mode = true;
+        scan.port_specification.consecutive_ports = true;
+        scan.port_specification.top_ports = Some(100);
+        scan.port_specification.exclude_ports = Some("22,80".to_string());
 
         let cmd = NmapCommandBuilder::build(&scan);
         assert!(cmd.contains(" -F"));
@@ -679,6 +709,27 @@ mod tests {
         assert!(cmd.contains(" --open"));
         assert!(cmd.contains(" --reason"));
         assert!(cmd.contains(" scanme.nmap.org"));
+    }
+
+    #[test]
+    fn test_target_specification_flags() {
+        let mut scan = NmapScan::new();
+        scan.target_specification.targets = vec!["192.168.1.1".to_string()];
+        scan.target_specification.input_file = Some(PathBuf::from("targets.txt"));
+        scan.target_specification.random_targets = Some(10);
+        scan.target_specification.exclude = vec!["192.168.1.2".to_string()];
+        scan.target_specification.exclude_file = Some(PathBuf::from("exclude.txt"));
+        scan.target_specification.no_resolve = true;
+        scan.target_specification.dns_servers = vec!["8.8.8.8".to_string()];
+
+        let cmd = NmapCommandBuilder::build(&scan);
+        assert!(cmd.contains(" -iL targets.txt"));
+        assert!(cmd.contains(" -iR 10"));
+        assert!(cmd.contains(" --exclude 192.168.1.2"));
+        assert!(cmd.contains(" --exclude-file exclude.txt"));
+        assert!(cmd.contains(" -n"));
+        assert!(cmd.contains(" --dns-servers 8.8.8.8"));
+        assert!(cmd.contains(" 192.168.1.1"));
     }
 
     #[test]

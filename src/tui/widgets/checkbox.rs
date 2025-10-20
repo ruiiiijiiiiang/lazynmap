@@ -2,6 +2,7 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Style},
+    text::{Line, Span},
 };
 
 /// Checkbox widget that manages its own state
@@ -84,58 +85,32 @@ impl Checkbox {
             return;
         }
 
-        let (checkbox_text, style) = if self.checked {
+        let (checkbox_text, checkbox_style) = if self.checked {
             ("[X]", self.checked_style)
         } else {
             ("[ ]", self.unchecked_style)
         };
 
-        // Apply focused style if focused
-        let style = if self.focused {
+        let checkbox_style = if self.focused {
             self.focused_style
         } else {
-            style
+            checkbox_style
         };
 
-        let mut x = area.x;
-        let y = area.y + area.height / 2;
+        let label_style = if self.focused {
+            self.focused_style
+        } else {
+            self.label_style
+        };
 
-        // Render checkbox
-        for (i, c) in checkbox_text.chars().enumerate() {
-            if x + i as u16 >= area.x + area.width {
-                break;
-            }
-            if let Some(cell) = buf.cell_mut((x + i as u16, y)) {
-                cell.set_char(c);
-                cell.set_style(style);
-            }
-        }
-        x += 3;
+        // Create line with checkbox and label
+        let line = Line::from(vec![
+            Span::styled(checkbox_text, checkbox_style),
+            Span::styled(" ", label_style),
+            Span::styled(&self.label, label_style),
+        ]);
 
-        // Render label
-        if x < area.x + area.width {
-            // Add space between checkbox and label
-            if let Some(cell) = buf.cell_mut((x, y)) {
-                cell.set_char(' ');
-            }
-            x += 1;
-
-            let label_style = if self.focused {
-                self.focused_style
-            } else {
-                self.label_style
-            };
-
-            for (i, c) in self.label.chars().enumerate() {
-                if x + i as u16 >= area.x + area.width {
-                    break;
-                }
-                if let Some(cell) = buf.cell_mut((x + i as u16, y)) {
-                    cell.set_char(c);
-                    cell.set_style(label_style);
-                }
-            }
-        }
+        buf.set_line(area.x, area.y, &line, area.width);
     }
 }
 
