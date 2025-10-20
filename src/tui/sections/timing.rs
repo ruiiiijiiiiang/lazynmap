@@ -4,6 +4,7 @@ use ratatui::{
 };
 
 use crate::{
+    consts::IndexableEnum,
     scan::{flags::NmapFlag, model::TimingTemplate},
     tui::{
         app::App,

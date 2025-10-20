@@ -1,28 +1,35 @@
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
+    layout::{Constraint, Direction, Layout, Rect},
+    prelude::*,
     style::{Color, Style},
     text::{Line, Span},
+    widgets::Paragraph,
 };
 
+use crate::tui::widgets::text_input::InputWidget;
+
 /// Checkbox widget that manages its own state
-#[derive(Debug, Clone)]
-pub struct Checkbox {
+pub struct Checkbox<'a> {
     label: String,
     checked: bool,
     focused: bool,
+    input: Option<&'a mut InputWidget>,
+    input_editing: bool,
     checked_style: Style,
     unchecked_style: Style,
     label_style: Style,
     focused_style: Style,
 }
 
-impl Checkbox {
+impl<'a> Checkbox<'a> {
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             label: label.into(),
             checked: false,
             focused: false,
+            input: None,
+            input_editing: false,
             checked_style: Style::default().fg(Color::Green),
             unchecked_style: Style::default().fg(Color::Gray),
             label_style: Style::default(),
@@ -37,6 +44,16 @@ impl Checkbox {
 
     pub fn with_focused(mut self, focused: bool) -> Self {
         self.focused = focused;
+        self
+    }
+
+    pub fn with_input(mut self, input: Option<&'a mut InputWidget>) -> Self {
+        self.input = input;
+        self
+    }
+
+    pub fn with_editing(mut self, editing: bool) -> Self {
+        self.input_editing = editing;
         self
     }
 
@@ -80,7 +97,7 @@ impl Checkbox {
         self.focused
     }
 
-    pub fn render(&self, area: Rect, buf: &mut Buffer) {
+    pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
         if area.width < 3 || area.height < 1 {
             return;
         }
@@ -110,11 +127,21 @@ impl Checkbox {
             Span::styled(&self.label, label_style),
         ]);
 
-        buf.set_line(area.x, area.y, &line, area.width);
+        if let Some(ref mut input) = self.input {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Length(line.width() as u16), Constraint::Min(0)])
+                .split(area);
+
+            Paragraph::new(line).render(chunks[0], buf);
+            input.render(chunks[1], buf, self.focused, self.input_editing);
+        } else {
+            buf.set_line(area.x, area.y, &line, area.width);
+        }
     }
 }
 
-impl Default for Checkbox {
+impl Default for Checkbox<'_> {
     fn default() -> Self {
         Self::new("")
     }

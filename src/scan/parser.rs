@@ -2,10 +2,13 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::scan::model::{NmapScan, NsockEngine, SctpScanType, TcpScanType, TimingTemplate};
+use crate::{
+    consts::IndexableEnum,
+    scan::model::{NmapScan, NsockEngine, SctpScanType, TcpScanType, TimingTemplate},
+};
 
 /// Error type for parsing failures
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum ParseError {
     InvalidFlag(String),
     InvalidValue(String, String),
@@ -210,7 +213,7 @@ impl NmapParser {
             }
 
             // Service/Version detection
-            "-sV" => scan.service_detection.enabled = true,
+            "-sV" | "-sR" => scan.service_detection.enabled = true,
             "--allports" => scan.service_detection.allports = true,
             "--version-intensity" => {
                 scan.service_detection.intensity =

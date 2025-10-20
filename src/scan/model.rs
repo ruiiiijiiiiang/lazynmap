@@ -1,10 +1,9 @@
 use std::net::IpAddr;
 use std::path::PathBuf;
-use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumCount, EnumIter, EnumMessage, EnumString};
 
 /// Represents a complete nmap scan configuration
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct NmapScan {
     // Target specification
     pub target_specification: TargetSpecification,
@@ -40,7 +39,7 @@ pub struct NmapScan {
     pub misc: MiscOptions,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TargetSpecification {
     pub targets: Vec<String>,
     pub input_file: Option<PathBuf>,
@@ -56,7 +55,7 @@ pub struct TargetSpecification {
 }
 
 /// Host discovery options
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct HostDiscovery {
     pub list_scan: bool,            // -sL
     pub ping_scan: bool,            // -sn
@@ -75,14 +74,14 @@ pub struct HostDiscovery {
 }
 
 /// Scan technique options
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct ScanTechnique {
     pub tcp: Option<TcpScanType>,
     pub udp: bool, // -sU
     pub sctp: Option<SctpScanType>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Display, EnumMessage, EnumCount, Default)]
+#[derive(Clone, Debug, Default, Display, EnumCount, EnumMessage, Eq, PartialEq)]
 pub enum TcpScanType {
     #[default]
     #[strum(to_string = "SYN (-sS)")]
@@ -164,14 +163,16 @@ impl Default for ScanTechnique {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy, Debug, Display, EnumCount, EnumIter, EnumMessage, Eq, PartialEq)]
 pub enum SctpScanType {
-    Init,   // -sY
+    #[strum(to_string = "SCTP init (-sY)")]
+    Init, // -sY
+    #[strum(to_string = "SCTP cookie (-sZ)")]
     Cookie, // -sZ
 }
 
 /// Port specification
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PortSpecification {
     pub ports: Option<String>,         // -p
     pub exclude_ports: Option<String>, // --exclude-ports
@@ -182,7 +183,7 @@ pub struct PortSpecification {
 }
 
 /// Service and version detection
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ServiceDetection {
     pub enabled: bool,          // -sV
     pub allports: bool,         // --allports
@@ -193,7 +194,7 @@ pub struct ServiceDetection {
 }
 
 /// OS detection options
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct OsDetection {
     pub enabled: bool,            // -O
     pub limit: bool,              // --osscan-limit
@@ -202,7 +203,7 @@ pub struct OsDetection {
 }
 
 /// Script scanning options
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ScriptScan {
     pub default: bool,                     // -sC
     pub scripts: Vec<String>,              // --script
@@ -214,7 +215,7 @@ pub struct ScriptScan {
 }
 
 /// Timing and performance options
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct TimingPerformance {
     pub min_hostgroup: Option<u32>,          // --min-hostgroup
     pub max_hostgroup: Option<u32>,          // --max-hostgroup
@@ -261,7 +262,7 @@ impl Default for TimingPerformance {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Display, EnumIter, EnumCount, Default)]
+#[derive(Clone, Copy, Debug, Default, Display, EnumCount, EnumIter, Eq, PartialEq)]
 pub enum TimingTemplate {
     #[strum(to_string = "Paranoid (-T0)")]
     Paranoid = 0,
@@ -278,21 +279,7 @@ pub enum TimingTemplate {
     Insane = 5,
 }
 
-impl TimingTemplate {
-    pub fn as_index(&self) -> usize {
-        *self as usize
-    }
-
-    pub fn from_index(index: usize) -> Option<Self> {
-        TimingTemplate::iter().nth(index)
-    }
-
-    pub fn all_labels() -> Vec<String> {
-        Self::iter().map(|t| t.to_string()).collect()
-    }
-}
-
-#[derive(Debug, Clone, Display, EnumString)]
+#[derive(Clone, Copy, Debug, Display, EnumCount, EnumIter, EnumString, Eq, PartialEq)]
 pub enum NsockEngine {
     #[strum(to_string = "iocp")]
     Iocp,
@@ -307,7 +294,7 @@ pub enum NsockEngine {
 }
 
 /// Firewall/IDS evasion and spoofing
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct EvasionSpoofing {
     pub fragment_packets: bool,      // -f
     pub mtu: Option<u32>,            // --mtu
@@ -328,7 +315,7 @@ pub struct EvasionSpoofing {
 }
 
 /// Output options
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct OutputOptions {
     pub normal: Option<PathBuf>,        // -oN
     pub xml: Option<PathBuf>,           // -oX
@@ -351,7 +338,7 @@ pub struct OutputOptions {
 }
 
 /// Miscellaneous options
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct MiscOptions {
     pub ipv6: bool,                 // -6
     pub aggressive: bool,           // -A (OS, version, script, traceroute)

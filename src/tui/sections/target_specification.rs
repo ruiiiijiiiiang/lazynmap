@@ -7,7 +7,7 @@ use crate::{
     scan::flags::NmapFlag,
     tui::{
         app::App,
-        utils::{render_checkbox, render_input},
+        utils::{render_checkbox, render_checkbox_with_input},
     },
 };
 
@@ -29,7 +29,7 @@ pub fn render_target_specification(app: &mut App, frame: &mut Frame, area: Rect)
         .iter()
         .zip(row_0_col_chunks.iter())
     {
-        render_input(app, flag, frame, area);
+        render_checkbox_with_input(app, flag, frame, area);
     }
 
     // Row 1
@@ -43,7 +43,7 @@ pub fn render_target_specification(app: &mut App, frame: &mut Frame, area: Rect)
         .iter()
         .zip(row_1_col_chunks.iter())
     {
-        render_input(app, flag, frame, area);
+        render_checkbox_with_input(app, flag, frame, area);
     }
 
     // Row 2
@@ -53,7 +53,7 @@ pub fn render_target_specification(app: &mut App, frame: &mut Frame, area: Rect)
         .constraints([Constraint::Percentage(50); 2])
         .spacing(1)
         .split(row_chunks[2]);
-    render_input(app, NmapFlag::RandomTargets, frame, row_2_col_chunks[0]);
+    render_checkbox_with_input(app, NmapFlag::RandomTargets, frame, row_2_col_chunks[0]);
     render_checkbox(app, NmapFlag::Unique, frame, row_2_col_chunks[1]);
 
     // Row 3
@@ -82,5 +82,5 @@ pub fn render_target_specification(app: &mut App, frame: &mut Frame, area: Rect)
         .constraints([Constraint::Percentage(50); 2])
         .spacing(1)
         .split(row_chunks[4]);
-    render_input(app, NmapFlag::DnsServers, frame, row_4_col_chunks[0]);
+    render_checkbox_with_input(app, NmapFlag::DnsServers, frame, row_4_col_chunks[0]);
 }

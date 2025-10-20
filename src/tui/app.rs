@@ -2,20 +2,24 @@ use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode},
     prelude::*,
-    widgets::{Block, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{
+        Block, BorderType, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    },
 };
 use std::{collections::HashMap, error::Error};
 
 use crate::{
+    consts::{self, IndexableEnum},
     scan::{
         builder::NmapCommandBuilder,
         flags::{FlagValue, NmapFlag},
-        model::{NmapScan, TcpScanType, TimingTemplate},
+        model::{NmapScan, SctpScanType, TcpScanType, TimingTemplate},
     },
     tui::{
         sections::{
-            host_discovery::render_host_discovery, scan_technique::render_scan_technique,
-            target_specification::render_target_specification, timing::render_timing,
+            host_discovery::render_host_discovery, port_specification::render_port_specification,
+            scan_technique::render_scan_technique, service_detection::render_service_detection,
+            target_specification::render_target_specification,
         },
         utils::{TcpScanTypeState, initialize_scan_type_state, initialize_text_inputs},
         widgets::text_input::{EventResult, InputValue, InputWidget},
@@ -25,9 +29,9 @@ use crate::{
 const SECTIONS: [(&str, u16); 10] = [
     ("Target Specification", 11),
     ("Host Discovery", 9),
-    ("Scan Technique", 10),
-    ("Port Specification", 10),
-    ("Service Detection", 10),
+    ("Scan Technique", 14),
+    ("Port Specification", 5),
+    ("Service Detection", 5),
     ("OS Detection", 10),
     ("Timing", 10),
     ("Evasion and Spoofing", 10),
@@ -110,7 +114,9 @@ impl<'a> App<'a> {
             .constraints([Constraint::Length(25), Constraint::Min(0)])
             .split(chunks[0]);
 
-        let left_block = Block::bordered().title("Sections");
+        let left_block = Block::bordered()
+            .border_type(BorderType::Thick)
+            .title("Sections");
         let sections = SECTIONS
             .iter()
             .enumerate()
@@ -125,7 +131,9 @@ impl<'a> App<'a> {
         let section_paragraph = Paragraph::new(sections).block(left_block);
         frame.render_widget(section_paragraph, top_chunks[0]);
 
-        let right_block = Block::bordered().title("Options");
+        let right_block = Block::bordered()
+            .border_type(BorderType::Thick)
+            .title("Options");
         let right_area = right_block.inner(top_chunks[1]);
         frame.render_widget(right_block, top_chunks[1]);
 
@@ -168,6 +176,7 @@ impl<'a> App<'a> {
                 };
                 let flag_block = Block::bordered()
                     .title(SECTIONS[index].0)
+                    .border_type(BorderType::Rounded)
                     .border_style(border_style);
                 Clear.render(visible_area, frame.buffer_mut());
                 frame.render_widget(flag_block, visible_area);
@@ -196,7 +205,15 @@ impl<'a> App<'a> {
                             horizontal: 1,
                         }),
                     ),
-                    3 => render_timing(
+                    3 => render_port_specification(
+                        self,
+                        frame,
+                        visible_area.inner(Margin {
+                            vertical: 1,
+                            horizontal: 1,
+                        }),
+                    ),
+                    4 => render_service_detection(
                         self,
                         frame,
                         visible_area.inner(Margin {
@@ -331,23 +348,27 @@ impl<'a> App<'a> {
                                 .focused_radio_index
                                 .and_then(TimingTemplate::from_index);
                         }
+                        FlagValue::SctpScanType(flag_value) => {
+                            *flag_value =
+                                self.focused_radio_index.and_then(SctpScanType::from_index);
+                        }
                         FlagValue::TcpScanType(flag_value) => match self.focused_radio_index {
                             Some(radio_index) if radio_index <= 8 => {
                                 *flag_value = TcpScanType::from_index(radio_index);
                             }
-                            Some(9) => {
+                            Some(consts::IDLE_SCAN_TYPE_INDEX) => {
                                 let input_value = self.tcp_scan_type_state.idle_input.content();
                                 let scan_type = Some(TcpScanType::Idle(input_value.to_string()));
                                 *flag_value = scan_type.clone();
                                 self.tcp_scan_type_state.editing_scan_type = scan_type;
                             }
-                            Some(10) => {
+                            Some(consts::FTP_SCAN_TYPE_INDEX) => {
                                 let input_value = self.tcp_scan_type_state.ftp_input.content();
                                 let scan_type = Some(TcpScanType::Ftp(input_value.to_string()));
                                 *flag_value = scan_type.clone();
                                 self.tcp_scan_type_state.editing_scan_type = scan_type;
                             }
-                            Some(11) => {
+                            Some(consts::SCANFLAGS_SCAN_TYPE_INDEX) => {
                                 let input_value =
                                     self.tcp_scan_type_state.scanflags_input.content();
                                 let scan_type =

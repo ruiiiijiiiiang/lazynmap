@@ -1,5 +1,6 @@
 use std::error::Error;
 
+pub mod consts;
 pub mod scan;
 pub mod tui;
 
