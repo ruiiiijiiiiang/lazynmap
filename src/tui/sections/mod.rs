@@ -1,6 +1,9 @@
+pub mod evasion_spoof;
 pub mod host_discovery;
+pub mod miscellaneous;
 pub mod nse_script;
 pub mod os_detection;
+pub mod output;
 pub mod port_specification;
 pub mod scan_technique;
 pub mod service_detection;

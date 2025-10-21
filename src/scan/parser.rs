@@ -1,4 +1,3 @@
-use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -334,11 +333,7 @@ impl NmapParser {
                     .collect()
             }
             "-S" => {
-                let val = Self::get_next_value(iter, flag)?;
-                scan.evasion.spoof_ip = Some(
-                    IpAddr::from_str(val)
-                        .map_err(|_| ParseError::InvalidValue(flag.to_string(), val.clone()))?,
-                );
+                scan.evasion.spoof_ip = Some(Self::get_next_value(iter, flag)?.clone());
             }
             "-e" => scan.evasion.interface = Some(Self::get_next_value(iter, flag)?.clone()),
             "-g" | "--source-port" => {
@@ -380,11 +375,37 @@ impl NmapParser {
                 scan.output.script_kiddie = Some(PathBuf::from(Self::get_next_value(iter, flag)?))
             }
             "-oG" => scan.output.grepable = Some(PathBuf::from(Self::get_next_value(iter, flag)?)),
-            "-oA" => scan.output.all_formats = Some(Self::get_next_value(iter, flag)?.clone()),
-            "-v" => scan.output.verbose = scan.output.verbose.saturating_add(1),
-            "-vv" => scan.output.verbose = scan.output.verbose.saturating_add(2),
-            "-d" => scan.output.debug = scan.output.debug.saturating_add(1),
-            "-dd" => scan.output.debug = scan.output.debug.saturating_add(2),
+            "-oA" => {
+                scan.output.all_formats = Some(PathBuf::from(Self::get_next_value(iter, flag)?))
+            }
+            f if f.starts_with("-v") && f.len() >= 2 => {
+                if f.len() == 2 {
+                    scan.output.verbosity = Some(1);
+                } else {
+                    let rest = &f[2..];
+                    if rest.chars().all(|c| c == 'v') {
+                        scan.output.verbosity = Some(f[1..].len() as u32);
+                    } else if let Ok(value) = rest.parse::<u32>() {
+                        scan.output.verbosity = Some(value);
+                    } else {
+                        return Err(ParseError::InvalidFlag(f.to_string()));
+                    }
+                }
+            }
+            f if f.starts_with("-d") && f.len() >= 2 => {
+                if f.len() == 2 {
+                    scan.output.debugging = Some(1);
+                } else {
+                    let rest = &f[2..];
+                    if rest.chars().all(|c| c == 'd') {
+                        scan.output.debugging = Some(f[1..].len() as u32);
+                    } else if let Ok(value) = rest.parse::<u32>() {
+                        scan.output.debugging = Some(value);
+                    } else {
+                        return Err(ParseError::InvalidFlag(f.to_string()));
+                    }
+                }
+            }
             "--reason" => scan.output.reason = true,
             "--stats-every" => {
                 scan.output.stats_every = Some(Self::get_next_value(iter, flag)?.clone())
@@ -578,11 +599,12 @@ mod tests {
 
     #[test]
     fn test_output_options() {
-        let result = NmapParser::parse("nmap -oN normal.txt -v --open scanme.nmap.org");
+        let result = NmapParser::parse("nmap -oN normal.txt -vv -d4 --open scanme.nmap.org");
         assert!(result.is_ok());
         let scan = result.unwrap();
         assert_eq!(scan.output.normal, Some(PathBuf::from("normal.txt")));
-        assert_eq!(scan.output.verbose, 1);
+        assert_eq!(scan.output.verbosity, Some(2));
+        assert_eq!(scan.output.debugging, Some(4));
         assert!(scan.output.open_only);
     }
 
@@ -620,8 +642,8 @@ mod tests {
             scan.timing.template,
             Some(TimingTemplate::Aggressive)
         ));
-        assert_eq!(scan.timing.min_rate, Some(1000));
-        assert_eq!(scan.output.all_formats, Some("full_scan".to_string()));
+        assert_eq!(scan.timing.min_rate, Some(50.0));
+        assert_eq!(scan.output.all_formats, Some(PathBuf::from("full_scan")));
         assert_eq!(scan.target_specification.targets, vec!["192.168.1.1"]);
     }
 }

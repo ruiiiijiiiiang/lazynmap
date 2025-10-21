@@ -362,31 +362,13 @@ impl NmapCommandBuilder {
             write!(cmd, " -oG {}", Self::quote_path(grepable)).ok();
         }
         if let Some(ref all_formats) = out.all_formats {
-            write!(cmd, " -oA {}", Self::quote_if_needed(all_formats)).ok();
+            write!(cmd, " -oA {}", Self::quote_path(all_formats)).ok();
         }
-
-        // Handle verbose flag
-        match out.verbose {
-            0 => {}
-            1 => cmd.push_str(" -v"),
-            2 => cmd.push_str(" -vv"),
-            n => {
-                for _ in 0..n {
-                    cmd.push_str(" -v");
-                }
-            }
+        if let Some(verbosity) = out.verbosity {
+            write!(cmd, " -v{}", verbosity).ok();
         }
-
-        // Handle debug flag
-        match out.debug {
-            0 => {}
-            1 => cmd.push_str(" -d"),
-            2 => cmd.push_str(" -dd"),
-            n => {
-                for _ in 0..n {
-                    cmd.push_str(" -d");
-                }
-            }
+        if let Some(debugging) = out.debugging {
+            write!(cmd, " -d{}", debugging).ok();
         }
 
         if out.reason {
@@ -594,12 +576,12 @@ mod tests {
     fn test_verbose_and_debug() {
         let mut scan = NmapScan::new();
         scan.target_specification.targets = vec!["192.168.1.1".to_string()];
-        scan.output.verbose = 2;
-        scan.output.debug = 3;
+        scan.output.verbosity = Some(1);
+        scan.output.debugging = Some(3);
 
         let cmd = NmapCommandBuilder::build(&scan);
-        assert!(cmd.contains("-vv"));
-        assert!(cmd.matches("-d").count() == 3);
+        assert!(cmd.contains("-v1"));
+        assert!(cmd.contains("-d3"));
     }
 
     #[test]
@@ -698,7 +680,7 @@ mod tests {
         scan.target_specification.targets = vec!["scanme.nmap.org".to_string()];
         scan.output.normal = Some(PathBuf::from("output.nmap"));
         scan.output.grepable = Some(PathBuf::from("output.gnmap"));
-        scan.output.all_formats = Some("all_output".to_string());
+        scan.output.all_formats = Some(PathBuf::from("all_output"));
         scan.output.open_only = true;
         scan.output.reason = true;
 

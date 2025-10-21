@@ -12,9 +12,7 @@ use crate::{
     },
     tui::{
         app::App,
-        utils::{
-            even_horizontal_split, even_vertical_split, render_checkbox, render_checkbox_with_input,
-        },
+        utils::{even_horizontal_split, even_vertical_split, render_checkbox},
         widgets::radio::{RadioGroup, RadioOption},
     },
 };
@@ -38,7 +36,7 @@ pub fn render_timing(app: &mut App, frame: &mut Frame, area: Rect) {
     .iter()
     .zip(row_0_col_chunks.iter())
     {
-        render_checkbox_with_input(app, flag, frame, area);
+        render_checkbox(app, flag, frame, area);
     }
 
     // Row 1
@@ -51,7 +49,7 @@ pub fn render_timing(app: &mut App, frame: &mut Frame, area: Rect) {
     .iter()
     .zip(row_1_col_chunks.iter())
     {
-        render_checkbox_with_input(app, flag, frame, area);
+        render_checkbox(app, flag, frame, area);
     }
 
     // Row 2
@@ -64,7 +62,7 @@ pub fn render_timing(app: &mut App, frame: &mut Frame, area: Rect) {
     .iter()
     .zip(row_2_col_chunks.iter())
     {
-        render_checkbox_with_input(app, flag, frame, area);
+        render_checkbox(app, flag, frame, area);
     }
 
     // Row 3
@@ -78,7 +76,7 @@ pub fn render_timing(app: &mut App, frame: &mut Frame, area: Rect) {
     .iter()
     .zip(row_3_col_chunks.iter())
     {
-        render_checkbox_with_input(app, flag, frame, area);
+        render_checkbox(app, flag, frame, area);
     }
 
     // Row 4

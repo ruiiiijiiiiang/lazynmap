@@ -156,6 +156,17 @@ impl InputWidget {
             InputWidget::Path(input) => input.value().ok().map(InputValue::Path),
         }
     }
+
+    pub fn error(&self) -> Option<String> {
+        match self {
+            InputWidget::String(input) => input.error.clone(),
+            InputWidget::Int(input) => input.error.clone(),
+            InputWidget::Float(input) => input.error.clone(),
+            InputWidget::VecString(input) => input.error.clone(),
+            InputWidget::VecInt(input) => input.error.clone(),
+            InputWidget::Path(_) => None,
+        }
+    }
 }
 
 // ============================================================================
@@ -368,7 +379,7 @@ pub struct TextInput<T> {
     buffer: InputBuffer,
     parser: Box<dyn Parser<T>>,
     label: Option<String>,
-    pub placeholder: Option<String>,
+    placeholder: Option<String>,
     // focused_style: Style,
     // editing_style: Style,
     // default_style: Style,
@@ -630,7 +641,7 @@ impl PathCompleter {
                 .map(|e| e.path())
                 .filter(|p| {
                     if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
-                        name.to_lowercase().starts_with(&prefix.to_lowercase())
+                        name.to_lowercase().contains(&prefix.to_lowercase())
                     } else {
                         false
                     }

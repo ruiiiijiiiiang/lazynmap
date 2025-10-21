@@ -4,9 +4,7 @@ use crate::{
     scan::flags::NmapFlag,
     tui::{
         app::App,
-        utils::{
-            even_horizontal_split, even_vertical_split, render_checkbox, render_checkbox_with_input,
-        },
+        utils::{even_horizontal_split, even_vertical_split, render_checkbox},
     },
 };
 
@@ -19,7 +17,7 @@ pub fn render_target_specification(app: &mut App, frame: &mut Frame, area: Rect)
         .iter()
         .zip(row_0_col_chunks.iter())
     {
-        render_checkbox_with_input(app, flag, frame, area);
+        render_checkbox(app, flag, frame, area);
     }
 
     // Row 1
@@ -28,13 +26,17 @@ pub fn render_target_specification(app: &mut App, frame: &mut Frame, area: Rect)
         .iter()
         .zip(row_1_col_chunks.iter())
     {
-        render_checkbox_with_input(app, flag, frame, area);
+        render_checkbox(app, flag, frame, area);
     }
 
     // Row 2
     let row_2_col_chunks = even_horizontal_split(row_chunks[2], 2);
-    render_checkbox_with_input(app, NmapFlag::RandomTargets, frame, row_2_col_chunks[0]);
-    render_checkbox(app, NmapFlag::Unique, frame, row_2_col_chunks[1]);
+    for (&flag, &area) in [NmapFlag::RandomTargets, NmapFlag::Unique]
+        .iter()
+        .zip(row_2_col_chunks.iter())
+    {
+        render_checkbox(app, flag, frame, area);
+    }
 
     // Row 3
     let row_3_col_chunks = even_horizontal_split(row_chunks[3], 4);
@@ -52,5 +54,5 @@ pub fn render_target_specification(app: &mut App, frame: &mut Frame, area: Rect)
 
     // Row 4
     let row_4_col_chunks = even_horizontal_split(row_chunks[4], 2);
-    render_checkbox_with_input(app, NmapFlag::DnsServers, frame, row_4_col_chunks[0]);
+    render_checkbox(app, NmapFlag::DnsServers, frame, row_4_col_chunks[0]);
 }

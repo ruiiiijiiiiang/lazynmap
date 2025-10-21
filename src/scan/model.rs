@@ -1,4 +1,3 @@
-use std::net::IpAddr;
 use std::path::PathBuf;
 use strum_macros::{Display, EnumCount, EnumIter, EnumMessage, EnumString};
 
@@ -233,8 +232,8 @@ pub struct TimingPerformance {
     pub script_timeout: Option<String>,      // --script-timeout
     pub scan_delay: Option<String>,          // --scan-delay
     pub max_scan_delay: Option<String>,      // --max-scan-delay
-    pub min_rate: Option<u32>,               // --min-rate
-    pub max_rate: Option<u32>,               // --max-rate
+    pub min_rate: Option<f32>,               // --min-rate
+    pub max_rate: Option<f32>,               // --max-rate
     pub defeat_rst_ratelimit: bool,          // --defeat-rst-ratelimit
     pub defeat_icmp_ratelimit: bool,         // --defeat-icmp-ratelimit
     pub nsock_engine: Option<NsockEngine>,   // --nsock-engine
@@ -303,7 +302,7 @@ pub struct EvasionSpoofing {
     pub fragment_packets: bool,      // -f
     pub mtu: Option<u32>,            // --mtu
     pub decoys: Vec<String>,         // -D
-    pub spoof_ip: Option<IpAddr>,    // -S
+    pub spoof_ip: Option<String>,    // -S
     pub interface: Option<String>,   // -e
     pub source_port: Option<u32>,    // -g/--source-port
     pub data: Option<String>,        // --data
@@ -325,9 +324,9 @@ pub struct OutputOptions {
     pub xml: Option<PathBuf>,           // -oX
     pub script_kiddie: Option<PathBuf>, // -oS
     pub grepable: Option<PathBuf>,      // -oG
-    pub all_formats: Option<String>,    // -oA (base filename)
-    pub verbose: u32,                   // -v, -vv, etc. (0-10+)
-    pub debug: u32,                     // -d, -dd, etc. (0-10+)
+    pub all_formats: Option<PathBuf>,   // -oA (base filename)
+    pub verbosity: Option<u32>,         // -v, -vv, etc. (0-9)
+    pub debugging: Option<u32>,         // -d, -dd, etc. (0-9)
     pub reason: bool,                   // --reason
     pub stats_every: Option<String>,    // --stats-every
     pub packet_trace: bool,             // --packet-trace

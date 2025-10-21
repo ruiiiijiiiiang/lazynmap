@@ -8,15 +8,15 @@ use crate::{
     },
 };
 
-pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
+pub fn render_miscellaneous(app: &mut App, frame: &mut Frame, area: Rect) {
     let row_chunks = even_vertical_split(area, 4);
 
     // Row 0
     let row_0_col_chunks = even_horizontal_split(row_chunks[0], 3);
     for (&flag, &area) in [
-        NmapFlag::ListScan,
-        NmapFlag::PingScan,
-        NmapFlag::SkipPortScan,
+        NmapFlag::IpV6,
+        NmapFlag::Aggressive,
+        NmapFlag::ReleaseMemory,
     ]
     .iter()
     .zip(row_0_col_chunks.iter())
@@ -25,15 +25,10 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     }
 
     // Row 1
-    let row_1_col_chunks = even_horizontal_split(row_chunks[1], 4);
-    for (&flag, &area) in [
-        NmapFlag::SynDiscovery,
-        NmapFlag::AckDiscovery,
-        NmapFlag::UdpDiscovery,
-        NmapFlag::SctpDiscovery,
-    ]
-    .iter()
-    .zip(row_1_col_chunks.iter())
+    let row_1_col_chunks = even_horizontal_split(row_chunks[1], 3);
+    for (&flag, &area) in [NmapFlag::DataDir, NmapFlag::ServiceDb, NmapFlag::VersionDb]
+        .iter()
+        .zip(row_1_col_chunks.iter())
     {
         render_checkbox(app, flag, frame, area);
     }
@@ -41,10 +36,10 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     // Row 2
     let row_2_col_chunks = even_horizontal_split(row_chunks[2], 4);
     for (&flag, &area) in [
-        NmapFlag::IcmpEcho,
-        NmapFlag::IcmpTimestamp,
-        NmapFlag::IcmpNetmask,
-        NmapFlag::IpProtocolPing,
+        NmapFlag::SendEth,
+        NmapFlag::SendIp,
+        NmapFlag::Privileged,
+        NmapFlag::Unprivileged,
     ]
     .iter()
     .zip(row_2_col_chunks.iter())
@@ -53,14 +48,10 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     }
 
     // Row 3
-    let row_3_col_chunks = even_horizontal_split(row_chunks[3], 3);
-    for (&flag, &area) in [
-        NmapFlag::DisableArpPing,
-        NmapFlag::DiscoverIgnoreRst,
-        NmapFlag::Traceroute,
-    ]
-    .iter()
-    .zip(row_3_col_chunks.iter())
+    let row_3_col_chunks = even_horizontal_split(row_chunks[3], 4);
+    for (&flag, &area) in [NmapFlag::Version, NmapFlag::Help]
+        .iter()
+        .zip(row_3_col_chunks.iter())
     {
         render_checkbox(app, flag, frame, area);
     }

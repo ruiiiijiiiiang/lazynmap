@@ -24,7 +24,7 @@ use crate::{
 
 pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapFlag, InputWidget>) {
     // Int inputs
-    for flag in [
+    for &flag in [
         NmapFlag::RandomTargets,
         NmapFlag::VersionIntensity,
         NmapFlag::TopPorts,
@@ -34,8 +34,12 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
         NmapFlag::MinParallelism,
         NmapFlag::MaxParallelism,
         NmapFlag::MaxRetries,
-        NmapFlag::MinRate,
-        NmapFlag::MaxRate,
+        NmapFlag::Mtu,
+        NmapFlag::SourcePort,
+        NmapFlag::DataLength,
+        NmapFlag::Ttl,
+        NmapFlag::Verbosity,
+        NmapFlag::Debugging,
     ]
     .iter()
     {
@@ -45,21 +49,22 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
         if let FlagValue::Int(Some(flag_value)) = flag.get_flag_value(scan) {
             input.set_typed_value(*flag_value);
         }
-        input_map.insert(*flag, InputWidget::Int(input));
+        input_map.insert(flag, InputWidget::Int(input));
     }
 
-    // Float input
-    let flag = NmapFlag::PortRatio;
-    let mut input = TextInput::new(FloatParser)
-        .with_label(flag.to_string())
-        .with_placeholder(flag.get_message().unwrap());
-    if let FlagValue::Float(Some(flag_value)) = flag.get_flag_value(scan) {
-        input.set_typed_value(*flag_value);
+    // Float inputs
+    for &flag in [NmapFlag::MinRate, NmapFlag::MaxRate, NmapFlag::PortRatio].iter() {
+        let mut input = TextInput::new(FloatParser)
+            .with_label(flag.to_string())
+            .with_placeholder(flag.get_message().unwrap());
+        if let FlagValue::Float(Some(flag_value)) = flag.get_flag_value(scan) {
+            input.set_typed_value(*flag_value);
+        }
+        input_map.insert(flag, InputWidget::Float(input));
     }
-    input_map.insert(flag, InputWidget::Float(input));
 
     // String inputs
-    for flag in [
+    for &flag in [
         NmapFlag::Ports,
         NmapFlag::ExcludePorts,
         NmapFlag::ScriptArgs,
@@ -71,6 +76,13 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
         NmapFlag::ScriptTimeout,
         NmapFlag::ScanDelay,
         NmapFlag::MaxScanDelay,
+        NmapFlag::SpoofIp,
+        NmapFlag::SpoofMac,
+        NmapFlag::Interface,
+        NmapFlag::Data,
+        NmapFlag::DataString,
+        NmapFlag::IpOptions,
+        NmapFlag::StatsEvery,
     ]
     .iter()
     {
@@ -80,11 +92,11 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
         if let FlagValue::String(Some(flag_value)) = flag.get_flag_value(scan) {
             input.set_typed_value(flag_value.to_string());
         }
-        input_map.insert(*flag, InputWidget::String(input));
+        input_map.insert(flag, InputWidget::String(input));
     }
 
     // VecInt inputs
-    for flag in [
+    for &flag in [
         NmapFlag::SynDiscovery,
         NmapFlag::AckDiscovery,
         NmapFlag::UdpDiscovery,
@@ -99,15 +111,17 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
         if let FlagValue::VecInt(flag_value) = flag.get_flag_value(scan) {
             input.set_typed_value(flag_value.to_vec());
         }
-        input_map.insert(*flag, InputWidget::VecInt(input));
+        input_map.insert(flag, InputWidget::VecInt(input));
     }
 
     // VecString inputs
-    for flag in [
+    for &flag in [
         NmapFlag::Targets,
         NmapFlag::Exclude,
         NmapFlag::DnsServers,
         NmapFlag::Script,
+        NmapFlag::Decoys,
+        NmapFlag::Proxies,
     ]
     .iter()
     {
@@ -117,14 +131,24 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
         if let FlagValue::VecString(flag_value) = flag.get_flag_value(scan) {
             input.set_typed_value(flag_value.to_vec());
         }
-        input_map.insert(*flag, InputWidget::VecString(input));
+        input_map.insert(flag, InputWidget::VecString(input));
     }
 
     // Path inputs
-    for flag in [
+    for &flag in [
         NmapFlag::InputFile,
         NmapFlag::ExcludeFile,
         NmapFlag::ScriptArgsFile,
+        NmapFlag::Normal,
+        NmapFlag::Xml,
+        NmapFlag::Grepable,
+        NmapFlag::AllFormats,
+        NmapFlag::Resume,
+        NmapFlag::Stylesheet,
+        NmapFlag::ScriptKiddie,
+        NmapFlag::DataDir,
+        NmapFlag::ServiceDb,
+        NmapFlag::VersionDb,
     ]
     .iter()
     {
@@ -134,37 +158,53 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
         if let FlagValue::Path(Some(flag_value)) = flag.get_flag_value(scan) {
             input.set_typed_value(flag_value.to_path_buf());
         }
-        input_map.insert(*flag, InputWidget::Path(input));
+        input_map.insert(flag, InputWidget::Path(input));
     }
 }
 
 pub fn render_checkbox(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: Rect) {
-    let FlagValue::Bool(flag_value) = flag.get_flag_value(app.scan) else {
-        panic!()
-    };
-    let label = flag.to_string();
-    let mut checkbox = Checkbox::new(label)
-        .with_checked(*flag_value)
-        .with_focused(app.focused_flag == flag);
-    checkbox.render(area, frame.buffer_mut());
-}
-
-pub fn render_checkbox_with_input(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: Rect) {
     let flag_value = flag.get_flag_value(app.scan);
-    let checked = match flag_value {
-        FlagValue::Int(value) => value.is_some(),
-        FlagValue::String(value) => value.is_some(),
-        FlagValue::Path(value) => value.is_some(),
-        FlagValue::VecInt(value) => !value.is_empty(),
-        FlagValue::VecString(value) => !value.is_empty(),
-        _ => false,
+
+    let (label, checked, input) = match flag_value {
+        FlagValue::Bool(value) => (flag.to_string(), *value, None),
+        FlagValue::Int(value) => (
+            "".to_string(),
+            value.is_some(),
+            app.input_map.get_mut(&flag),
+        ),
+        FlagValue::String(value) => (
+            "".to_string(),
+            value.is_some(),
+            app.input_map.get_mut(&flag),
+        ),
+        FlagValue::Path(value) => (
+            "".to_string(),
+            value.is_some(),
+            app.input_map.get_mut(&flag),
+        ),
+        FlagValue::VecInt(value) => (
+            "".to_string(),
+            !value.is_empty(),
+            app.input_map.get_mut(&flag),
+        ),
+        FlagValue::VecString(value) => (
+            "".to_string(),
+            !value.is_empty(),
+            app.input_map.get_mut(&flag),
+        ),
+        _ => ("".to_string(), false, None),
     };
-    let input = app.input_map.get_mut(&flag);
-    let mut checkbox = Checkbox::new("")
+
+    let mut checkbox = Checkbox::new(label)
         .with_checked(checked)
-        .with_focused(app.focused_flag == flag)
-        .with_input(input)
-        .with_editing(app.editing_flag == Some(flag));
+        .with_focused(app.focused_flag == flag);
+
+    if let Some(input) = input {
+        checkbox = checkbox
+            .with_input(Some(input))
+            .with_editing(app.editing_flag == Some(flag));
+    }
+
     checkbox.render(area, frame.buffer_mut());
 }
 

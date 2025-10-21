@@ -9,30 +9,31 @@ pub enum NmapFlag {
     // Target specification
     #[strum(
         to_string = "Targets",
-        message = "Hostnames, IP addresses, networks, etc"
+        message = "list of strings",
+        detailed_message = "Hostnames, IP addresses, networks, etc"
     )]
     Targets,
     #[strum(
         to_string = "Input file",
-        message = "Input from list of hosts/networks",
+        message = "file path",
         detailed_message = "-iL"
     )]
     InputFile,
     #[strum(
         to_string = "Exclude",
-        message = "Exclude hosts/networks",
+        message = "list of strings",
         detailed_message = "--exclude"
     )]
     Exclude,
     #[strum(
         to_string = "Exclude file",
-        message = "Exclude list from file",
+        message = "file path",
         detailed_message = "--exclude-file"
     )]
     ExcludeFile,
     #[strum(
         to_string = "Random targets",
-        message = "Number of random targets",
+        message = "number",
         detailed_message = "-iR"
     )]
     RandomTargets,
@@ -48,7 +49,7 @@ pub enum NmapFlag {
     SystemDns,
     #[strum(
         to_string = "DNS servers",
-        message = "Server list",
+        message = "list of strings",
         detailed_message = "--dns-servers"
     )]
     DnsServers,
@@ -60,13 +61,29 @@ pub enum NmapFlag {
     PingScan,
     #[strum(to_string = "Skip port scan", detailed_message = "-Pn")]
     SkipPortScan,
-    #[strum(to_string = "SYN", message = "Port list", detailed_message = "-PS")]
+    #[strum(
+        to_string = "SYN",
+        message = "list of numbers",
+        detailed_message = "-PS"
+    )]
     SynDiscovery,
-    #[strum(to_string = "ACK", message = "Port list", detailed_message = "-PA")]
+    #[strum(
+        to_string = "ACK",
+        message = "list of numbers",
+        detailed_message = "-PA"
+    )]
     AckDiscovery,
-    #[strum(to_string = "UDP", message = "Port list", detailed_message = "-PU")]
+    #[strum(
+        to_string = "UDP",
+        message = "list of numbers",
+        detailed_message = "-PU"
+    )]
     UdpDiscovery,
-    #[strum(to_string = "SCTP", message = "Port list", detailed_message = "-PY")]
+    #[strum(
+        to_string = "SCTP",
+        message = "list of numbers",
+        detailed_message = "-PY"
+    )]
     SctpDiscovery,
     #[strum(to_string = "ICMP echo", detailed_message = "-PE")]
     IcmpEcho,
@@ -76,7 +93,7 @@ pub enum NmapFlag {
     IcmpNetmask,
     #[strum(
         to_string = "IP protocol ping",
-        message = "Protocol list",
+        message = "list of numbers",
         detailed_message = "-PO"
     )]
     IpProtocolPing,
@@ -102,11 +119,11 @@ pub enum NmapFlag {
     SctpScan,
 
     // Port specification
-    #[strum(to_string = "Ports", message = "Port ranges", detailed_message = "-p")]
+    #[strum(to_string = "Ports", message = "string", detailed_message = "-p")]
     Ports,
     #[strum(
         to_string = "Exclude ports",
-        message = "Port ranges",
+        message = "string",
         detailed_message = "--exclude-ports"
     )]
     ExcludePorts,
@@ -116,13 +133,13 @@ pub enum NmapFlag {
     ConsecutivePorts,
     #[strum(
         to_string = "Top ports",
-        message = "Number of ports",
+        message = "number",
         detailed_message = "--top-ports"
     )]
     TopPorts,
     #[strum(
         to_string = "Port ratio",
-        message = "Ratio",
+        message = "decimal number (0-1)",
         detailed_message = "--port-ratio"
     )]
     PortRatio,
@@ -134,7 +151,7 @@ pub enum NmapFlag {
     AllPorts,
     #[strum(
         to_string = "Version intensity",
-        message = "Intensity",
+        message = "number (0-9)",
         detailed_message = "--version-intensity"
     )]
     VersionIntensity,
@@ -154,7 +171,7 @@ pub enum NmapFlag {
     OsGuess,
     #[strum(
         to_string = "Max retries",
-        message = "Number of retries",
+        message = "number",
         detailed_message = "--max-os-retries"
     )]
     MaxOsRetries,
@@ -164,115 +181,115 @@ pub enum NmapFlag {
     DefaultScript,
     #[strum(
         to_string = "Script",
-        message = "Script name",
+        message = "list of strings",
         detailed_message = "--script"
     )]
     Script,
     #[strum(
         to_string = "Args",
-        message = "<name>=<value>,...",
+        message = "string (key/value pairs)",
         detailed_message = "--script-args"
     )]
     ScriptArgs,
     #[strum(
         to_string = "Args file",
-        message = "File name",
+        message = "file path",
         detailed_message = "--script-args-file"
     )]
     ScriptArgsFile,
     #[strum(
         to_string = "Help",
-        message = "Script name",
+        message = "string",
         detailed_message = "--script-help"
     )]
     ScriptHelp,
     #[strum(to_string = "Trace", detailed_message = "--script-trace")]
     ScriptTrace,
     #[strum(to_string = "Update DB", detailed_message = "--script-updatedb")]
-    ScriptUpdateDB,
+    ScriptUpdateDb,
 
     // Timing
     #[strum(
         to_string = "Min hostgroup",
-        message = "Number of hosts",
+        message = "number",
         detailed_message = "--min-hostgroup"
     )]
     MinHostgroup,
     #[strum(
         to_string = "Max hostgroup",
-        message = "Number of hosts",
+        message = "number",
         detailed_message = "--max-hostgroup"
     )]
     MaxHostgroup,
     #[strum(
         to_string = "Min parallelism",
-        message = "Number of probes",
+        message = "number",
         detailed_message = "--min-parallelism"
     )]
     MinParallelism,
     #[strum(
         to_string = "Max parallelism",
-        message = "Number of probes",
+        message = "number",
         detailed_message = "--max-parallelism"
     )]
     MaxParallelism,
     #[strum(
         to_string = "Min RTT timeoue",
-        message = "Time",
+        message = "time",
         detailed_message = "--min-rtt-timeout"
     )]
     MinRttTimeout,
     #[strum(
         to_string = "Max RTT timeout",
-        message = "Time",
+        message = "time",
         detailed_message = "--max-rtt-timeout"
     )]
     MaxRttTimeout,
     #[strum(
         to_string = "Initial RTT timeout",
-        message = "Time",
+        message = "time",
         detailed_message = "--initial-rtt-timeout"
     )]
     InitialRttTimeout,
     #[strum(
         to_string = "Max retries",
-        message = "Number of retries",
+        message = "number",
         detailed_message = "--max-retries"
     )]
     MaxRetries,
     #[strum(
         to_string = "Host timeout",
-        message = "Time",
+        message = "time",
         detailed_message = "--host-timeout"
     )]
     HostTimeout,
     #[strum(
         to_string = "Script timeout",
-        message = "Time",
+        message = "time",
         detailed_message = "--script-timeout"
     )]
     ScriptTimeout,
     #[strum(
         to_string = "Scan delay",
-        message = "Time",
+        message = "time",
         detailed_message = "--scan-delay"
     )]
     ScanDelay,
     #[strum(
         to_string = "Max scan delay",
-        message = "Time",
+        message = "time",
         detailed_message = "--max-scan-delay"
     )]
     MaxScanDelay,
     #[strum(
         to_string = "Min rate",
-        message = "Rate",
+        message = "decimal number",
         detailed_message = "--min-rate"
     )]
     MinRate,
     #[strum(
         to_string = "Max rate",
-        message = "Rate",
+        message = "decimal number",
         detailed_message = "--max-rate"
     )]
     MaxRate,
@@ -290,6 +307,196 @@ pub enum NmapFlag {
     NsockEngine,
     #[strum(to_string = "Timing template", detailed_message = "-T")]
     TimingTemplate,
+
+    // Evasion and spoofing
+    #[strum(to_string = "Fragment packets", detailed_message = "-f")]
+    FragmentPackets,
+    #[strum(to_string = "MTU", message = "number", detailed_message = "--mtu")]
+    Mtu,
+    #[strum(
+        to_string = "Decoys",
+        message = "list of strings",
+        detailed_message = "--decoys"
+    )]
+    Decoys,
+    #[strum(
+        to_string = "Proxies",
+        message = "list of strings",
+        detailed_message = "--proxies"
+    )]
+    Proxies,
+    #[strum(
+        to_string = "Spoof IP",
+        message = "string (IP address)",
+        detailed_message = "--spoof"
+    )]
+    SpoofIp,
+    #[strum(
+        to_string = "Spoof MAC",
+        message = "string (MAC address)",
+        detailed_message = "--spoof-mac"
+    )]
+    SpoofMac,
+    #[strum(to_string = "Interface", message = "string", detailed_message = "-e")]
+    Interface,
+    #[strum(
+        to_string = "Source port",
+        message = "number",
+        detailed_message = "--source-port"
+    )]
+    SourcePort,
+    #[strum(
+        to_string = "Data",
+        message = "hex string",
+        detailed_message = "--data"
+    )]
+    Data,
+    #[strum(
+        to_string = "Data string",
+        message = "string",
+        detailed_message = "--data-string"
+    )]
+    DataString,
+    #[strum(
+        to_string = "Data length",
+        message = "number",
+        detailed_message = "--data-length"
+    )]
+    DataLength,
+    #[strum(
+        to_string = "IP options",
+        message = "string",
+        detailed_message = "--ip-options"
+    )]
+    IpOptions,
+    #[strum(
+        to_string = "TTL",
+        message = "number (0-255)",
+        detailed_message = "--ttl"
+    )]
+    Ttl,
+    #[strum(to_string = "Randomize hosts", detailed_message = "--randomize-hosts")]
+    RandomizeHosts,
+    #[strum(to_string = "Badsum", detailed_message = "--badsum")]
+    Badsum,
+    #[strum(to_string = "Adler32", detailed_message = "--adler32")]
+    Adler32,
+
+    // Output
+    #[strum(
+        to_string = "Normal output",
+        message = "file path",
+        detailed_message = "-oN"
+    )]
+    Normal,
+    #[strum(
+        to_string = "XML output",
+        message = "file path",
+        detailed_message = "-oX"
+    )]
+    Xml,
+    #[strum(
+        to_string = "Grepable output",
+        message = "file path",
+        detailed_message = "-oG"
+    )]
+    Grepable,
+    #[strum(
+        to_string = "All formats",
+        message = "file path",
+        detailed_message = "-oA"
+    )]
+    AllFormats,
+    #[strum(
+        to_string = "Resume",
+        message = "file path",
+        detailed_message = "--resume"
+    )]
+    Resume,
+    #[strum(to_string = "Append output", detailed_message = "--append-output")]
+    AppendOutput,
+    #[strum(
+        to_string = "Verbosity",
+        message = "number (0-9)",
+        detailed_message = "-v"
+    )]
+    Verbosity,
+    #[strum(
+        to_string = "Debugging",
+        message = "number (0-9)",
+        detailed_message = "-d"
+    )]
+    Debugging,
+    #[strum(
+        to_string = "Stats every",
+        message = "time",
+        detailed_message = "--stats-every"
+    )]
+    StatsEvery,
+    #[strum(to_string = "Reason", detailed_message = "--reason")]
+    Reason,
+    #[strum(to_string = "Packet trace", detailed_message = "--packet-trace")]
+    PacketTrace,
+    #[strum(to_string = "Open only", detailed_message = "--open")]
+    OpenOnly,
+    #[strum(to_string = "List interfaces", detailed_message = "--iflist")]
+    IfList,
+    #[strum(to_string = "Noninteractive", detailed_message = "--noninteractive")]
+    Noninteractive,
+    #[strum(
+        to_string = "Stylesheet",
+        message = "file path",
+        detailed_message = "--stylesheet"
+    )]
+    Stylesheet,
+    #[strum(to_string = "Web XML", detailed_message = "--webxml")]
+    WebXml,
+    #[strum(to_string = "No stylesheet", detailed_message = "--no-stylesheet")]
+    NoStylesheet,
+    #[strum(
+        to_string = "ScRipT KIdd|3 oUTpuT",
+        message = "file path",
+        detailed_message = "-oS"
+    )]
+    ScriptKiddie,
+
+    // Miscellaneous
+    #[strum(to_string = "IPv6", detailed_message = "-6")]
+    IpV6,
+    #[strum(to_string = "Aggressive", detailed_message = "-A")]
+    Aggressive,
+    #[strum(to_string = "Release memory", detailed_message = "--release-memory")]
+    ReleaseMemory,
+    #[strum(
+        to_string = "Data directory",
+        message = "directory path",
+        detailed_message = "--datadir"
+    )]
+    DataDir,
+    #[strum(
+        to_string = "Service DB",
+        message = "file path",
+        detailed_message = "--service-db"
+    )]
+    ServiceDb,
+    #[strum(
+        to_string = "Version DB",
+        message = "file path",
+        detailed_message = "--version-db"
+    )]
+    VersionDb,
+    #[strum(to_string = "Send eth", detailed_message = "--send-eth")]
+    SendEth,
+    #[strum(to_string = "Send IP", detailed_message = "--send-ip")]
+    SendIp,
+    #[strum(to_string = "Privileged", detailed_message = "--privileged")]
+    Privileged,
+    #[strum(to_string = "Unprivileged", detailed_message = "--unprivileged")]
+    Unprivileged,
+    #[strum(to_string = "Version", detailed_message = "--version")]
+    Version,
+    #[strum(to_string = "Help", detailed_message = "--help")]
+    Help,
 }
 
 pub enum FlagValue<'a> {
@@ -387,7 +594,7 @@ impl NmapFlag {
             NmapFlag::ScriptArgsFile => FlagValue::Path(&mut scan.nse_script.script_args_file),
             NmapFlag::ScriptHelp => FlagValue::String(&mut scan.nse_script.script_help),
             NmapFlag::ScriptTrace => FlagValue::Bool(&mut scan.nse_script.script_trace),
-            NmapFlag::ScriptUpdateDB => FlagValue::Bool(&mut scan.nse_script.script_updatedb),
+            NmapFlag::ScriptUpdateDb => FlagValue::Bool(&mut scan.nse_script.script_updatedb),
 
             // Timing
             NmapFlag::MinHostgroup => FlagValue::Int(&mut scan.timing.min_hostgroup),
@@ -402,14 +609,66 @@ impl NmapFlag {
             NmapFlag::ScriptTimeout => FlagValue::String(&mut scan.timing.script_timeout),
             NmapFlag::ScanDelay => FlagValue::String(&mut scan.timing.scan_delay),
             NmapFlag::MaxScanDelay => FlagValue::String(&mut scan.timing.max_scan_delay),
-            NmapFlag::MinRate => FlagValue::Int(&mut scan.timing.min_rate),
-            NmapFlag::MaxRate => FlagValue::Int(&mut scan.timing.max_rate),
+            NmapFlag::MinRate => FlagValue::Float(&mut scan.timing.min_rate),
+            NmapFlag::MaxRate => FlagValue::Float(&mut scan.timing.max_rate),
             NmapFlag::DefeatRstRatelimit => FlagValue::Bool(&mut scan.timing.defeat_rst_ratelimit),
             NmapFlag::DefeatIcmpRatelimit => {
                 FlagValue::Bool(&mut scan.timing.defeat_icmp_ratelimit)
             }
             NmapFlag::NsockEngine => FlagValue::NsockEngine(&mut scan.timing.nsock_engine),
             NmapFlag::TimingTemplate => FlagValue::TimingTemplate(&mut scan.timing.template),
+
+            // Evasion and spoof
+            NmapFlag::FragmentPackets => FlagValue::Bool(&mut scan.evasion.fragment_packets),
+            NmapFlag::Mtu => FlagValue::Int(&mut scan.evasion.mtu),
+            NmapFlag::Decoys => FlagValue::VecString(&mut scan.evasion.decoys),
+            NmapFlag::Proxies => FlagValue::VecString(&mut scan.evasion.proxies),
+            NmapFlag::SpoofIp => FlagValue::String(&mut scan.evasion.spoof_ip),
+            NmapFlag::SpoofMac => FlagValue::String(&mut scan.evasion.spoof_mac),
+            NmapFlag::Interface => FlagValue::String(&mut scan.evasion.interface),
+            NmapFlag::SourcePort => FlagValue::Int(&mut scan.evasion.source_port),
+            NmapFlag::Data => FlagValue::String(&mut scan.evasion.data),
+            NmapFlag::DataString => FlagValue::String(&mut scan.evasion.data_string),
+            NmapFlag::DataLength => FlagValue::Int(&mut scan.evasion.data_length),
+            NmapFlag::IpOptions => FlagValue::String(&mut scan.evasion.ip_options),
+            NmapFlag::Ttl => FlagValue::Int(&mut scan.evasion.ttl),
+            NmapFlag::RandomizeHosts => FlagValue::Bool(&mut scan.evasion.randomize_hosts),
+            NmapFlag::Badsum => FlagValue::Bool(&mut scan.evasion.badsum),
+            NmapFlag::Adler32 => FlagValue::Bool(&mut scan.evasion.adler32),
+
+            // Output
+            NmapFlag::Normal => FlagValue::Path(&mut scan.output.normal),
+            NmapFlag::Xml => FlagValue::Path(&mut scan.output.xml),
+            NmapFlag::Grepable => FlagValue::Path(&mut scan.output.grepable),
+            NmapFlag::AllFormats => FlagValue::Path(&mut scan.output.all_formats),
+            NmapFlag::Resume => FlagValue::Path(&mut scan.output.resume),
+            NmapFlag::AppendOutput => FlagValue::Bool(&mut scan.output.append_output),
+            NmapFlag::Verbosity => FlagValue::Int(&mut scan.output.verbosity),
+            NmapFlag::Debugging => FlagValue::Int(&mut scan.output.debugging),
+            NmapFlag::StatsEvery => FlagValue::String(&mut scan.output.stats_every),
+            NmapFlag::Reason => FlagValue::Bool(&mut scan.output.reason),
+            NmapFlag::PacketTrace => FlagValue::Bool(&mut scan.output.packet_trace),
+            NmapFlag::OpenOnly => FlagValue::Bool(&mut scan.output.open_only),
+            NmapFlag::IfList => FlagValue::Bool(&mut scan.output.iflist),
+            NmapFlag::Noninteractive => FlagValue::Bool(&mut scan.output.noninteractive),
+            NmapFlag::Stylesheet => FlagValue::Path(&mut scan.output.stylesheet),
+            NmapFlag::WebXml => FlagValue::Bool(&mut scan.output.webxml),
+            NmapFlag::NoStylesheet => FlagValue::Bool(&mut scan.output.no_stylesheet),
+            NmapFlag::ScriptKiddie => FlagValue::Path(&mut scan.output.script_kiddie),
+
+            // Miscellaneous
+            NmapFlag::IpV6 => FlagValue::Bool(&mut scan.misc.ipv6),
+            NmapFlag::Aggressive => FlagValue::Bool(&mut scan.misc.aggressive),
+            NmapFlag::ReleaseMemory => FlagValue::Bool(&mut scan.misc.release_memory),
+            NmapFlag::DataDir => FlagValue::Path(&mut scan.misc.datadir),
+            NmapFlag::ServiceDb => FlagValue::Path(&mut scan.misc.servicedb),
+            NmapFlag::VersionDb => FlagValue::Path(&mut scan.misc.versiondb),
+            NmapFlag::SendEth => FlagValue::Bool(&mut scan.misc.send_eth),
+            NmapFlag::SendIp => FlagValue::Bool(&mut scan.misc.send_ip),
+            NmapFlag::Privileged => FlagValue::Bool(&mut scan.misc.privileged),
+            NmapFlag::Unprivileged => FlagValue::Bool(&mut scan.misc.unprivileged),
+            NmapFlag::Version => FlagValue::Bool(&mut scan.misc.version),
+            NmapFlag::Help => FlagValue::Bool(&mut scan.misc.help),
         }
     }
 

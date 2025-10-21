@@ -8,15 +8,16 @@ use crate::{
     },
 };
 
-pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
+pub fn render_evasion_spoof(app: &mut App, frame: &mut Frame, area: Rect) {
     let row_chunks = even_vertical_split(area, 4);
 
     // Row 0
-    let row_0_col_chunks = even_horizontal_split(row_chunks[0], 3);
+    let row_0_col_chunks = even_horizontal_split(row_chunks[0], 4);
     for (&flag, &area) in [
-        NmapFlag::ListScan,
-        NmapFlag::PingScan,
-        NmapFlag::SkipPortScan,
+        NmapFlag::FragmentPackets,
+        NmapFlag::Mtu,
+        NmapFlag::Decoys,
+        NmapFlag::Proxies,
     ]
     .iter()
     .zip(row_0_col_chunks.iter())
@@ -27,10 +28,10 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     // Row 1
     let row_1_col_chunks = even_horizontal_split(row_chunks[1], 4);
     for (&flag, &area) in [
-        NmapFlag::SynDiscovery,
-        NmapFlag::AckDiscovery,
-        NmapFlag::UdpDiscovery,
-        NmapFlag::SctpDiscovery,
+        NmapFlag::SpoofIp,
+        NmapFlag::SpoofMac,
+        NmapFlag::Interface,
+        NmapFlag::SourcePort,
     ]
     .iter()
     .zip(row_1_col_chunks.iter())
@@ -41,10 +42,10 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     // Row 2
     let row_2_col_chunks = even_horizontal_split(row_chunks[2], 4);
     for (&flag, &area) in [
-        NmapFlag::IcmpEcho,
-        NmapFlag::IcmpTimestamp,
-        NmapFlag::IcmpNetmask,
-        NmapFlag::IpProtocolPing,
+        NmapFlag::Data,
+        NmapFlag::DataString,
+        NmapFlag::DataLength,
+        NmapFlag::IpOptions,
     ]
     .iter()
     .zip(row_2_col_chunks.iter())
@@ -53,11 +54,12 @@ pub fn render_host_discovery(app: &mut App, frame: &mut Frame, area: Rect) {
     }
 
     // Row 3
-    let row_3_col_chunks = even_horizontal_split(row_chunks[3], 3);
+    let row_3_col_chunks = even_horizontal_split(row_chunks[3], 4);
     for (&flag, &area) in [
-        NmapFlag::DisableArpPing,
-        NmapFlag::DiscoverIgnoreRst,
-        NmapFlag::Traceroute,
+        NmapFlag::Ttl,
+        NmapFlag::RandomizeHosts,
+        NmapFlag::Badsum,
+        NmapFlag::Adler32,
     ]
     .iter()
     .zip(row_3_col_chunks.iter())

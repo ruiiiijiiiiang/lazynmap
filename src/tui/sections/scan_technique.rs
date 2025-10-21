@@ -20,7 +20,7 @@ use crate::{
 pub fn render_scan_technique(app: &mut App, frame: &mut Frame, area: Rect) {
     let row_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(9), Constraint::Length(3)])
+        .constraints([Constraint::Length(7), Constraint::Length(3)])
         .split(area);
 
     let mut options = [
@@ -45,7 +45,7 @@ pub fn render_scan_technique(app: &mut App, frame: &mut Frame, area: Rect) {
     ));
 
     let mut tcp_scan_radios = RadioGroup::new(options)
-        .with_num_per_row(3)
+        .with_num_per_row(4)
         .with_selected(
             app.scan
                 .scan_technique
