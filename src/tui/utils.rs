@@ -1,5 +1,8 @@
-use ratatui::{Frame, layout::Rect};
-use std::collections::HashMap;
+use ratatui::{
+    Frame,
+    layout::{Constraint, Direction, Flex, Layout, Rect},
+};
+use std::{collections::HashMap, rc::Rc};
 use strum::EnumMessage;
 
 use crate::{
@@ -25,6 +28,14 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
         NmapFlag::RandomTargets,
         NmapFlag::VersionIntensity,
         NmapFlag::TopPorts,
+        NmapFlag::MaxOsRetries,
+        NmapFlag::MinHostgroup,
+        NmapFlag::MaxHostgroup,
+        NmapFlag::MinParallelism,
+        NmapFlag::MaxParallelism,
+        NmapFlag::MaxRetries,
+        NmapFlag::MinRate,
+        NmapFlag::MaxRate,
     ]
     .iter()
     {
@@ -48,7 +59,21 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
     input_map.insert(flag, InputWidget::Float(input));
 
     // String inputs
-    for flag in [NmapFlag::Ports, NmapFlag::ExcludePorts].iter() {
+    for flag in [
+        NmapFlag::Ports,
+        NmapFlag::ExcludePorts,
+        NmapFlag::ScriptArgs,
+        NmapFlag::ScriptHelp,
+        NmapFlag::MinRttTimeout,
+        NmapFlag::MaxRttTimeout,
+        NmapFlag::InitialRttTimeout,
+        NmapFlag::HostTimeout,
+        NmapFlag::ScriptTimeout,
+        NmapFlag::ScanDelay,
+        NmapFlag::MaxScanDelay,
+    ]
+    .iter()
+    {
         let mut input = TextInput::new(StringParser)
             .with_label(flag.to_string())
             .with_placeholder(flag.get_message().unwrap());
@@ -78,7 +103,14 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
     }
 
     // VecString inputs
-    for flag in [NmapFlag::Targets, NmapFlag::Exclude, NmapFlag::DnsServers].iter() {
+    for flag in [
+        NmapFlag::Targets,
+        NmapFlag::Exclude,
+        NmapFlag::DnsServers,
+        NmapFlag::Script,
+    ]
+    .iter()
+    {
         let mut input = TextInput::new(VecStringParser)
             .with_label(flag.to_string())
             .with_placeholder(flag.get_message().unwrap());
@@ -89,7 +121,13 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
     }
 
     // Path inputs
-    for flag in [NmapFlag::InputFile, NmapFlag::ExcludeFile].iter() {
+    for flag in [
+        NmapFlag::InputFile,
+        NmapFlag::ExcludeFile,
+        NmapFlag::ScriptArgsFile,
+    ]
+    .iter()
+    {
         let mut input = CompletingInput::new()
             .with_label(flag.to_string())
             .with_placeholder(flag.get_message().unwrap());
@@ -169,4 +207,22 @@ pub fn initialize_scan_type_input(scan: &NmapScan, scan_type: TcpScanType) -> In
     }
 
     InputWidget::String(input)
+}
+
+pub fn even_horizontal_split(area: Rect, num_split: u16) -> Rc<[Rect]> {
+    let percentage = 100 / num_split;
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![Constraint::Percentage(percentage); num_split as usize])
+        .flex(Flex::SpaceBetween)
+        .spacing(1)
+        .split(area)
+}
+
+pub fn even_vertical_split(area: Rect, num_split: u16) -> Rc<[Rect]> {
+    Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Length(1); num_split as usize])
+        .spacing(1)
+        .split(area)
 }

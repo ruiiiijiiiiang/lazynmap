@@ -23,8 +23,8 @@ pub struct NmapScan {
     // OS detection
     pub os_detection: OsDetection,
 
-    // Script scan
-    pub script_scan: ScriptScan,
+    // NSE script
+    pub nse_script: NseScript,
 
     // Timing and performance
     pub timing: TimingPerformance,
@@ -102,11 +102,15 @@ pub enum TcpScanType {
     Xmas, // -sX
     #[strum(to_string = "IP protocol (-sO)")]
     IpProtocol, // -sO
-    #[strum(to_string = "Idle (-sI)", message = "Zombie host")]
+    #[strum(to_string = "Idle", message = "Zombie host", detailed_message = "-sI")]
     Idle(String), // -sI (zombie host)
-    #[strum(to_string = "FTP (-b)", message = "FTP relay host")]
+    #[strum(to_string = "FTP", message = "FTP relay host", detailed_message = "-b")]
     Ftp(String), // -b (FTP bounce)
-    #[strum(to_string = "Flags (--scanflags)", message = "Custom TCP scan")]
+    #[strum(
+        to_string = "Scanflags",
+        message = "Custom TCP scan",
+        detailed_message = "--scanflags"
+    )]
     Scanflags(String), // --scanflags
 }
 
@@ -202,16 +206,16 @@ pub struct OsDetection {
     pub max_retries: Option<u32>, // --max-os-tries
 }
 
-/// Script scanning options
+/// NSE script options
 #[derive(Clone, Debug, Default)]
-pub struct ScriptScan {
+pub struct NseScript {
     pub default: bool,                     // -sC
-    pub scripts: Vec<String>,              // --script
+    pub script: Vec<String>,               // --script
     pub script_args: Option<String>,       // --script-args
     pub script_args_file: Option<PathBuf>, // --script-args-file
+    pub script_help: Option<String>,       // --script-help
     pub script_trace: bool,                // --script-trace
     pub script_updatedb: bool,             // --script-updatedb
-    pub script_help: Option<String>,       // --script-help
 }
 
 /// Timing and performance options

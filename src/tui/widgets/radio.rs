@@ -292,10 +292,10 @@ impl<'a> RadioGroup<'a> {
             .spacing(self.spacing)
             .split(area);
 
-        for row_idx in 0..num_rows as usize {
-            let start_idx = row_idx * num_per_row as usize;
-            let end_idx = ((row_idx + 1) * num_per_row as usize).min(self.options.len());
-            let row_options = &mut self.options[start_idx..end_idx];
+        for row_index in 0..num_rows as usize {
+            let start_index = row_index * num_per_row as usize;
+            let end_index = ((row_index + 1) * num_per_row as usize).min(self.options.len());
+            let row_options = &mut self.options[start_index..end_index];
 
             let num_cols = row_options.len() as u16;
             let col_constraints: Vec<Constraint> = (0..num_cols)
@@ -306,12 +306,12 @@ impl<'a> RadioGroup<'a> {
                 .constraints(col_constraints)
                 .flex(Flex::SpaceBetween)
                 .spacing(self.spacing)
-                .split(row_layout[row_idx]);
+                .split(row_layout[row_index]);
 
             for (col_idx, (option, &radio_area)) in
                 row_options.iter_mut().zip(col_layout.iter()).enumerate()
             {
-                let index = start_idx + col_idx;
+                let index = start_index + col_idx;
                 let mut radio = match option {
                     RadioOption::Text(label) => RadioButton::new(label.as_str()).with_input(None),
                     RadioOption::Input(input) => RadioButton::new("")

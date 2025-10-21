@@ -232,26 +232,26 @@ impl NmapParser {
                     Some(Self::parse_number(Self::get_next_value(iter, flag)?, flag)?)
             }
 
-            // Script scan
-            "-sC" => scan.script_scan.default = true,
+            // NSE script
+            "-sC" => scan.nse_script.default = true,
             "--script" => {
-                scan.script_scan.scripts = Self::get_next_value(iter, flag)?
+                scan.nse_script.script = Self::get_next_value(iter, flag)?
                     .split(',')
                     .map(String::from)
                     .collect()
             }
             "--script-args" => {
-                scan.script_scan.script_args = Some(Self::get_next_value(iter, flag)?.clone())
+                scan.nse_script.script_args = Some(Self::get_next_value(iter, flag)?.clone())
             }
             "--script-args-file" => {
-                scan.script_scan.script_args_file =
+                scan.nse_script.script_args_file =
                     Some(PathBuf::from(Self::get_next_value(iter, flag)?))
             }
-            "--script-trace" => scan.script_scan.script_trace = true,
-            "--script-updatedb" => scan.script_scan.script_updatedb = true,
             "--script-help" => {
-                scan.script_scan.script_help = Some(Self::get_next_value(iter, flag)?.clone())
+                scan.nse_script.script_help = Some(Self::get_next_value(iter, flag)?.clone())
             }
+            "--script-trace" => scan.nse_script.script_trace = true,
+            "--script-updatedb" => scan.nse_script.script_updatedb = true,
 
             // Timing and performance
             "--min-hostgroup" => {
@@ -510,11 +510,11 @@ mod tests {
     }
 
     #[test]
-    fn test_script_scan() {
+    fn test_nse_script() {
         let result = NmapParser::parse("nmap --script vuln,exploit 192.168.1.1");
         assert!(result.is_ok());
         let scan = result.unwrap();
-        assert_eq!(scan.script_scan.scripts, vec!["vuln", "exploit"]);
+        assert_eq!(scan.nse_script.script, vec!["vuln", "exploit"]);
     }
 
     #[test]

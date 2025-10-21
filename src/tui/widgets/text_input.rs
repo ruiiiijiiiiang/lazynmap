@@ -145,6 +145,17 @@ impl InputWidget {
             InputWidget::Path(input) => input.content(),
         }
     }
+
+    pub fn typed_value(&self) -> Option<InputValue> {
+        match self {
+            InputWidget::String(input) => input.value().ok().map(InputValue::String),
+            InputWidget::Int(input) => input.value().ok().map(InputValue::Int),
+            InputWidget::Float(input) => input.value().ok().map(InputValue::Float),
+            InputWidget::VecString(input) => input.value().ok().map(InputValue::VecString),
+            InputWidget::VecInt(input) => input.value().ok().map(InputValue::VecInt),
+            InputWidget::Path(input) => input.value().ok().map(InputValue::Path),
+        }
+    }
 }
 
 // ============================================================================
@@ -567,20 +578,20 @@ impl<T> TextInput<T> {
 
 struct PathCompleter {
     suggestions: Vec<PathBuf>,
-    selected_idx: usize,
+    selected_index: usize,
 }
 
 impl PathCompleter {
     fn new() -> Self {
         Self {
             suggestions: Vec::new(),
-            selected_idx: 0,
+            selected_index: 0,
         }
     }
 
     fn update_suggestions(&mut self, input: &str) {
         self.suggestions.clear();
-        self.selected_idx = 0;
+        self.selected_index = 0;
 
         if input.is_empty() {
             if let Ok(entries) = fs::read_dir(".") {
@@ -633,22 +644,22 @@ impl PathCompleter {
 
     fn select_next(&mut self) {
         if !self.suggestions.is_empty() {
-            self.selected_idx = (self.selected_idx + 1) % self.suggestions.len();
+            self.selected_index = (self.selected_index + 1) % self.suggestions.len();
         }
     }
 
     fn select_prev(&mut self) {
         if !self.suggestions.is_empty() {
-            if self.selected_idx == 0 {
-                self.selected_idx = self.suggestions.len() - 1;
+            if self.selected_index == 0 {
+                self.selected_index = self.suggestions.len() - 1;
             } else {
-                self.selected_idx -= 1;
+                self.selected_index -= 1;
             }
         }
     }
 
     fn selected(&self) -> Option<&PathBuf> {
-        self.suggestions.get(self.selected_idx)
+        self.suggestions.get(self.selected_index)
     }
 
     fn has_suggestions(&self) -> bool {
@@ -856,14 +867,15 @@ impl CompletingInput {
                     display.push('/');
                 }
 
-                let style =
-                    if i == self.completer.selected_idx && self.mode == CompletionMode::Selecting {
-                        Style::default().bg(Color::Blue).fg(Color::White)
-                    } else if i == self.completer.selected_idx {
-                        Style::default().fg(Color::Yellow)
-                    } else {
-                        Style::default()
-                    };
+                let style = if i == self.completer.selected_index
+                    && self.mode == CompletionMode::Selecting
+                {
+                    Style::default().bg(Color::Blue).fg(Color::White)
+                } else if i == self.completer.selected_index {
+                    Style::default().fg(Color::Yellow)
+                } else {
+                    Style::default()
+                };
 
                 ListItem::new(display).style(style)
             })

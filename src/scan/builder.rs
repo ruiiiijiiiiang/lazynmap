@@ -1,9 +1,9 @@
 use std::fmt::Write;
 
 use crate::scan::model::{
-    EvasionSpoofing, HostDiscovery, MiscOptions, NmapScan, OsDetection, OutputOptions,
-    PortSpecification, ScanTechnique, ScriptScan, SctpScanType, ServiceDetection,
-    TargetSpecification, TcpScanType, TimingPerformance,
+    EvasionSpoofing, HostDiscovery, MiscOptions, NmapScan, NseScript, OsDetection, OutputOptions,
+    PortSpecification, ScanTechnique, SctpScanType, ServiceDetection, TargetSpecification,
+    TcpScanType, TimingPerformance,
 };
 
 /// Builder for converting NmapScan structs into command strings
@@ -29,8 +29,8 @@ impl NmapCommandBuilder {
         // OS detection
         Self::build_os_detection(&mut cmd, &scan.os_detection);
 
-        // Script scan
-        Self::build_script_scan(&mut cmd, &scan.script_scan);
+        // NSE Script
+        Self::build_nse_script(&mut cmd, &scan.nse_script);
 
         // Timing and performance
         Self::build_timing_performance(&mut cmd, &scan.timing);
@@ -196,12 +196,12 @@ impl NmapCommandBuilder {
         }
     }
 
-    fn build_script_scan(cmd: &mut String, ss: &ScriptScan) {
+    fn build_nse_script(cmd: &mut String, ss: &NseScript) {
         if ss.default {
             cmd.push_str(" -sC");
         }
-        if !ss.scripts.is_empty() {
-            write!(cmd, " --script {}", ss.scripts.join(",")).ok();
+        if !ss.script.is_empty() {
+            write!(cmd, " --script {}", ss.script.join(",")).ok();
         }
         if let Some(ref args) = ss.script_args {
             write!(cmd, " --script-args {}", Self::quote_if_needed(args)).ok();
@@ -209,14 +209,14 @@ impl NmapCommandBuilder {
         if let Some(ref args_file) = ss.script_args_file {
             write!(cmd, " --script-args-file {}", Self::quote_path(args_file)).ok();
         }
+        if let Some(ref help) = ss.script_help {
+            write!(cmd, " --script-help {}", Self::quote_if_needed(help)).ok();
+        }
         if ss.script_trace {
             cmd.push_str(" --script-trace");
         }
         if ss.script_updatedb {
             cmd.push_str(" --script-updatedb");
-        }
-        if let Some(ref help) = ss.script_help {
-            write!(cmd, " --script-help {}", Self::quote_if_needed(help)).ok();
         }
     }
 
@@ -581,10 +581,10 @@ mod tests {
     }
 
     #[test]
-    fn test_script_scan() {
+    fn test_nse_script() {
         let mut scan = NmapScan::new();
         scan.target_specification.targets = vec!["192.168.1.1".to_string()];
-        scan.script_scan.scripts = vec!["vuln".to_string(), "exploit".to_string()];
+        scan.nse_script.script = vec!["vuln".to_string(), "exploit".to_string()];
 
         let cmd = NmapCommandBuilder::build(&scan);
         assert!(cmd.contains("--script vuln,exploit"));
@@ -610,7 +610,7 @@ mod tests {
         scan.host_discovery.skip_port_scan = true;
         scan.port_specification.ports = Some("-".to_string());
         scan.timing.template = Some(TimingTemplate::Aggressive);
-        scan.script_scan.scripts = vec!["vuln".to_string()];
+        scan.nse_script.script = vec!["vuln".to_string()];
         scan.output.xml = Some(PathBuf::from("output.xml"));
 
         let cmd = NmapCommandBuilder::build(&scan);

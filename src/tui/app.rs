@@ -13,27 +13,29 @@ use crate::{
     scan::{
         builder::NmapCommandBuilder,
         flags::{FlagValue, NmapFlag},
-        model::{NmapScan, SctpScanType, TcpScanType, TimingTemplate},
+        model::{NmapScan, NsockEngine, SctpScanType, TcpScanType, TimingTemplate},
     },
     tui::{
         sections::{
-            host_discovery::render_host_discovery, port_specification::render_port_specification,
+            host_discovery::render_host_discovery, nse_script::render_nse_script,
+            os_detection::render_os_detection, port_specification::render_port_specification,
             scan_technique::render_scan_technique, service_detection::render_service_detection,
-            target_specification::render_target_specification,
+            target_specification::render_target_specification, timing::render_timing,
         },
         utils::{TcpScanTypeState, initialize_scan_type_state, initialize_text_inputs},
         widgets::text_input::{EventResult, InputValue, InputWidget},
     },
 };
 
-const SECTIONS: [(&str, u16); 10] = [
+const SECTIONS: [(&str, u16); 11] = [
     ("Target Specification", 11),
     ("Host Discovery", 9),
     ("Scan Technique", 14),
     ("Port Specification", 5),
     ("Service Detection", 5),
-    ("OS Detection", 10),
-    ("Timing", 10),
+    ("OS Detection", 3),
+    ("NES Script", 7),
+    ("Timing", 17),
     ("Evasion and Spoofing", 10),
     ("Output", 10),
     ("Miscellaneous", 10),
@@ -221,6 +223,30 @@ impl<'a> App<'a> {
                             horizontal: 1,
                         }),
                     ),
+                    5 => render_os_detection(
+                        self,
+                        frame,
+                        visible_area.inner(Margin {
+                            vertical: 1,
+                            horizontal: 1,
+                        }),
+                    ),
+                    6 => render_nse_script(
+                        self,
+                        frame,
+                        visible_area.inner(Margin {
+                            vertical: 1,
+                            horizontal: 1,
+                        }),
+                    ),
+                    7 => render_timing(
+                        self,
+                        frame,
+                        visible_area.inner(Margin {
+                            vertical: 1,
+                            horizontal: 1,
+                        }),
+                    ),
                     _ => (),
                 }
             }
@@ -255,25 +281,45 @@ impl<'a> App<'a> {
                     .unwrap()
                     .handle_event(&event)
                 {
-                    EventResult::Submit(value) => {
-                        match (value, flag_value) {
-                            (InputValue::Int(value), FlagValue::Int(flag_value)) => {
-                                *flag_value = Some(value);
+                    EventResult::Submit(input_value) => {
+                        match (input_value, flag_value) {
+                            (InputValue::Int(input_value), FlagValue::Int(flag_value)) => {
+                                *flag_value = Some(input_value);
                             }
-                            (InputValue::VecInt(value), FlagValue::VecInt(flag_value)) => {
-                                *flag_value = value;
+                            (InputValue::Float(input_value), FlagValue::Float(flag_value)) => {
+                                *flag_value = Some(input_value);
                             }
-                            (InputValue::VecString(value), FlagValue::VecString(flag_value)) => {
-                                *flag_value = value;
+                            (InputValue::String(input_value), FlagValue::String(flag_value)) => {
+                                *flag_value = Some(input_value);
                             }
-                            (InputValue::Path(value), FlagValue::Path(flag_value)) => {
-                                *flag_value = Some(value);
+                            (InputValue::VecInt(input_value), FlagValue::VecInt(flag_value)) => {
+                                *flag_value = input_value;
+                            }
+                            (
+                                InputValue::VecString(input_value),
+                                FlagValue::VecString(flag_value),
+                            ) => {
+                                *flag_value = input_value;
+                            }
+                            (InputValue::Path(input_value), FlagValue::Path(flag_value)) => {
+                                *flag_value = Some(input_value);
                             }
                             _ => {}
                         }
-                        self.editing_flag = None
+                        self.editing_flag = None;
                     }
-                    EventResult::Cancel => self.editing_flag = None,
+                    EventResult::Cancel => {
+                        match flag_value {
+                            FlagValue::Int(flag_value) => *flag_value = None,
+                            FlagValue::Float(flag_value) => *flag_value = None,
+                            FlagValue::String(flag_value) => *flag_value = None,
+                            FlagValue::VecInt(flag_value) => *flag_value = Vec::new(),
+                            FlagValue::VecString(flag_value) => *flag_value = Vec::new(),
+                            FlagValue::Path(flag_value) => *flag_value = None,
+                            _ => {}
+                        }
+                        self.editing_flag = None;
+                    }
                     _ => {}
                 };
             } else if let Some(scan_type) = &self.tcp_scan_type_state.editing_scan_type {
@@ -341,17 +387,8 @@ impl<'a> App<'a> {
                             }
                         }
                     },
-                    KeyCode::Enter | KeyCode::Char(' ') => match flag_value {
+                    KeyCode::Char(' ') => match flag_value {
                         FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
-                        FlagValue::TimingTemplate(flag_value) => {
-                            *flag_value = self
-                                .focused_radio_index
-                                .and_then(TimingTemplate::from_index);
-                        }
-                        FlagValue::SctpScanType(flag_value) => {
-                            *flag_value =
-                                self.focused_radio_index.and_then(SctpScanType::from_index);
-                        }
                         FlagValue::TcpScanType(flag_value) => match self.focused_radio_index {
                             Some(radio_index) if radio_index <= 8 => {
                                 *flag_value = TcpScanType::from_index(radio_index);
@@ -378,7 +415,83 @@ impl<'a> App<'a> {
                             }
                             _ => (),
                         },
-                        _ => self.editing_flag = Some(self.focused_flag),
+                        FlagValue::SctpScanType(flag_value) => {
+                            *flag_value =
+                                self.focused_radio_index.and_then(SctpScanType::from_index);
+                        }
+                        FlagValue::NsockEngine(flag_value) => {
+                            *flag_value =
+                                self.focused_radio_index.and_then(NsockEngine::from_index);
+                        }
+                        FlagValue::TimingTemplate(flag_value) => {
+                            *flag_value = self
+                                .focused_radio_index
+                                .and_then(TimingTemplate::from_index);
+                        }
+                        FlagValue::Int(flag_value) => {
+                            if flag_value.is_some() {
+                                *flag_value = None
+                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                                && let Some(InputValue::Int(input_value)) = input.typed_value()
+                            {
+                                *flag_value = Some(input_value);
+                            }
+                        }
+                        FlagValue::Float(flag_value) => {
+                            if flag_value.is_some() {
+                                *flag_value = None
+                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                                && let Some(InputValue::Float(input_value)) = input.typed_value()
+                            {
+                                *flag_value = Some(input_value);
+                            }
+                        }
+                        FlagValue::String(flag_value) => {
+                            if flag_value.is_some() {
+                                *flag_value = None
+                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                                && let Some(InputValue::String(input_value)) = input.typed_value()
+                            {
+                                *flag_value = Some(input_value);
+                            }
+                        }
+                        FlagValue::VecInt(flag_value) => {
+                            if !flag_value.is_empty() {
+                                *flag_value = Vec::new()
+                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                                && let Some(InputValue::VecInt(input_value)) = input.typed_value()
+                            {
+                                *flag_value = input_value;
+                            }
+                        }
+                        FlagValue::VecString(flag_value) => {
+                            if !flag_value.is_empty() {
+                                *flag_value = Vec::new()
+                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                                && let Some(InputValue::VecString(input_value)) =
+                                    input.typed_value()
+                            {
+                                *flag_value = input_value;
+                            }
+                        }
+                        FlagValue::Path(flag_value) => {
+                            if flag_value.is_some() {
+                                *flag_value = None
+                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                                && let Some(InputValue::Path(input_value)) = input.typed_value()
+                            {
+                                *flag_value = Some(input_value);
+                            }
+                        }
+                    },
+                    KeyCode::Enter => match flag_value {
+                        FlagValue::Int(_)
+                        | FlagValue::Float(_)
+                        | FlagValue::String(_)
+                        | FlagValue::VecInt(_)
+                        | FlagValue::VecString(_)
+                        | FlagValue::Path(_) => self.editing_flag = Some(self.focused_flag),
+                        _ => (),
                     },
                     _ => {}
                 }
@@ -388,9 +501,9 @@ impl<'a> App<'a> {
     }
 
     fn scroll_up(&mut self) {
+        self.focused_section = self.focused_section.saturating_sub(1);
         self.scroll = self.scroll.saturating_sub(SECTIONS[self.focused_section].1);
         self.scroll_state = self.scroll_state.position(self.scroll as usize);
-        self.focused_section = self.focused_section.saturating_sub(1);
     }
 
     fn scroll_down(&mut self) {
