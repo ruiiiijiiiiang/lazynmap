@@ -54,7 +54,7 @@ pub fn render_scan_technique(app: &mut App, frame: &mut Frame, area: Rect) {
                 .map(|scan_type| scan_type.as_index()),
         )
         .with_focused(match (app.focused_flag, app.focused_radio_index) {
-            (NmapFlag::TcpScan, Some(index)) => Some(index),
+            (NmapFlag::TcpScanType, Some(index)) => Some(index),
             _ => None,
         })
         .with_editing(match app.tcp_scan_type_state.editing_scan_type {
@@ -105,7 +105,7 @@ pub fn render_scan_technique(app: &mut App, frame: &mut Frame, area: Rect) {
             .map(|scan_type| scan_type.as_index()),
     )
     .with_focused(match (app.focused_flag, app.focused_radio_index) {
-        (NmapFlag::SctpScan, Some(index)) => Some(index),
+        (NmapFlag::SctpScanType, Some(index)) => Some(index),
         _ => None,
     });
     sctp_radios.render(

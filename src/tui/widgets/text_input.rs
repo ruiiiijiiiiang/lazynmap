@@ -460,7 +460,10 @@ impl<T> TextInput<T> {
                 EventResult::Consumed
             }
             KeyCode::Enter => match self.parser.parse(self.buffer.content()) {
-                Ok(value) => EventResult::Submit(value),
+                Ok(value) => {
+                    self.error = None;
+                    EventResult::Submit(value)
+                }
                 Err(err) => {
                     self.error = Some(err);
                     EventResult::Consumed

@@ -3,10 +3,11 @@ use ratatui::{
     crossterm::event::{self, Event, KeyCode},
     prelude::*,
     widgets::{
-        Block, BorderType, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Block, BorderType, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
     },
 };
 use std::{collections::HashMap, error::Error};
+use strum::EnumMessage;
 
 use crate::{
     consts::{self, IndexableEnum},
@@ -33,6 +34,7 @@ struct SectionData {
     name: &'static str,
     height: u16,
     render: fn(&mut App, &mut Frame, Rect),
+    start: NmapFlag,
 }
 
 const SECTIONS: [SectionData; 11] = [
@@ -40,56 +42,67 @@ const SECTIONS: [SectionData; 11] = [
         name: "Target Specification",
         height: 11,
         render: render_target_specification,
+        start: NmapFlag::Targets,
     },
     SectionData {
         name: "Host Discovery",
         height: 9,
         render: render_host_discovery,
+        start: NmapFlag::ListScan,
     },
     SectionData {
         name: "Scan Technique",
         height: 12,
         render: render_scan_technique,
+        start: NmapFlag::TcpScanType,
     },
     SectionData {
         name: "Port Specification",
         height: 5,
         render: render_port_specification,
+        start: NmapFlag::Ports,
     },
     SectionData {
         name: "Service Detection",
         height: 5,
         render: render_service_detection,
+        start: NmapFlag::VersionDetection,
     },
     SectionData {
         name: "OS Detection",
         height: 3,
         render: render_os_detection,
+        start: NmapFlag::OsDetection,
     },
     SectionData {
         name: "NSE Script",
         height: 7,
         render: render_nse_script,
+        start: NmapFlag::DefaultScript,
     },
     SectionData {
         name: "Timing",
         height: 17,
         render: render_timing,
+        start: NmapFlag::MinHostgroup,
     },
     SectionData {
         name: "Evasion and Spoofing",
         height: 9,
         render: render_evasion_spoof,
+        start: NmapFlag::FragmentPackets,
     },
     SectionData {
         name: "Output",
         height: 13,
         render: render_output,
+        start: NmapFlag::Normal,
     },
     SectionData {
         name: "Miscellaneous",
         height: 9,
         render: render_miscellaneous,
+        start: NmapFlag::IpV6,
     },
 ];
 
@@ -102,6 +115,8 @@ pub struct App<'a> {
     pub focused_radio_index: Option<usize>,
     pub error: Option<String>,
 
+    // Due to the fact that TCP scan types are valued enum variants, their inputs need to be set
+    // up as special cases and tracked separately
     pub tcp_scan_type_state: TcpScanTypeState,
 
     scroll_state: ScrollbarState,
@@ -167,13 +182,22 @@ impl<'a> App<'a> {
 
         let top_chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Length(25), Constraint::Min(0)])
+            .constraints([Constraint::Length(30), Constraint::Min(0)])
             .split(chunks[0]);
 
-        let left_block = Block::bordered()
+        let left_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(9),
+                Constraint::Length(7),
+            ])
+            .split(top_chunks[0]);
+
+        let section_block = Block::bordered()
             .border_type(BorderType::Thick)
-            .title("Sections");
-        let sections = SECTIONS
+            .title(Line::from("Sections").centered());
+        let section_list = SECTIONS
             .iter()
             .enumerate()
             .map(|(index, section)| {
@@ -184,17 +208,63 @@ impl<'a> App<'a> {
                 }
             })
             .collect::<Vec<_>>();
-        let section_paragraph = Paragraph::new(sections).block(left_block);
-        frame.render_widget(section_paragraph, top_chunks[0]);
+        let section_paragraph = Paragraph::new(section_list).block(section_block);
+        frame.render_widget(section_paragraph, left_chunks[0]);
 
-        let right_block = Block::bordered()
+        let detail_block = Block::bordered()
             .border_type(BorderType::Thick)
-            .title("Options");
-        let right_area = right_block.inner(top_chunks[1]);
-        frame.render_widget(right_block, top_chunks[1]);
+            .title(Line::from("Flag Details").centered());
+        let detailed_message = if self.focused_flag.get_variant_count().is_some()
+            && let Some(radio_index) = self.focused_radio_index
+        {
+            match self.focused_flag {
+                NmapFlag::TcpScanType => TcpScanType::from_index(radio_index)
+                    .unwrap()
+                    .get_detailed_message()
+                    .unwrap(),
+                NmapFlag::SctpScanType => SctpScanType::from_index(radio_index)
+                    .unwrap()
+                    .get_detailed_message()
+                    .unwrap(),
+                NmapFlag::NsockEngine => NsockEngine::from_index(radio_index)
+                    .unwrap()
+                    .get_detailed_message()
+                    .unwrap(),
+                NmapFlag::TimingTemplate => TimingTemplate::from_index(radio_index)
+                    .unwrap()
+                    .get_detailed_message()
+                    .unwrap(),
+                _ => "",
+            }
+        } else {
+            self.focused_flag.get_detailed_message().unwrap()
+        };
+        let detail_content = Paragraph::new(detailed_message)
+            .wrap(Wrap { trim: true })
+            .block(detail_block);
+        frame.render_widget(detail_content, left_chunks[1]);
+
+        let navigation_block = Block::bordered()
+            .border_type(BorderType::Thick)
+            .title(Line::from("Keys").centered());
+        let navigation_list = Paragraph::new(vec![
+            Line::from("J / K : navigate sections"),
+            Line::from("H / L : navigate flags"),
+            Line::from("󱁐 : toggle flag"),
+            Line::from("󰌑 : edit value"),
+            Line::from("Q : quit"),
+        ])
+        .block(navigation_block);
+        frame.render_widget(navigation_list, left_chunks[2]);
+
+        let main_block = Block::bordered()
+            .border_type(BorderType::Thick)
+            .title(Line::from("Nmap Flags").centered());
+        let main_area = main_block.inner(top_chunks[1]);
+        frame.render_widget(main_block, top_chunks[1]);
 
         let right_chunks =
-            Layout::horizontal([Constraint::Min(0), Constraint::Length(1)]).split(right_area);
+            Layout::horizontal([Constraint::Min(0), Constraint::Length(1)]).split(main_area);
 
         let content_area = Rect {
             x: right_chunks[0].x,
@@ -212,7 +282,7 @@ impl<'a> App<'a> {
             )
             .split(content_area);
 
-        for ((index, &flag_chunk), section) in flag_chunks.iter().enumerate().zip(SECTIONS.iter()) {
+        for (index, (&flag_chunk, section)) in flag_chunks.iter().zip(SECTIONS.iter()).enumerate() {
             let terminal_y = flag_chunk.y as i16 - self.scroll as i16;
             if terminal_y + flag_chunk.height as i16 > right_chunks[0].y as i16
                 && terminal_y < (right_chunks[0].y + right_chunks[0].height) as i16
@@ -253,11 +323,25 @@ impl<'a> App<'a> {
             &mut self.scroll_state,
         );
 
-        let footer_block = Block::bordered().title(Line::from("Nmap command").centered());
-        let nmap_command = Paragraph::new(NmapCommandBuilder::build(self.scan))
-            .centered()
-            .block(footer_block);
-        frame.render_widget(nmap_command, chunks[1]);
+        if let Some(error) = &self.error {
+            let footer_block = Block::bordered()
+                .border_type(BorderType::Thick)
+                .border_style(Style::default().red())
+                .title(Line::from("Error").centered());
+            let footer_content =
+                Paragraph::new(Line::from(error.to_string()).style(Style::default().red()))
+                    .centered()
+                    .block(footer_block);
+            frame.render_widget(footer_content, chunks[1]);
+        } else {
+            let footer_block = Block::bordered()
+                .border_type(BorderType::Thick)
+                .title(Line::from("Nmap Command").centered());
+            let footer_content = Paragraph::new(NmapCommandBuilder::build(self.scan))
+                .centered()
+                .block(footer_block);
+            frame.render_widget(footer_content, chunks[1]);
+        }
 
         if let Some(flag) = self.editing_flag
             && let Some(input) = self.input_map.get(&flag)
@@ -273,41 +357,31 @@ impl<'a> App<'a> {
                 let input = self.input_map.get_mut(&self.focused_flag).unwrap();
                 match input.handle_event(&event) {
                     EventResult::Submit(input_value) => {
-                        if let Some(error) = input.error() {
-                            self.error = Some(error);
-                        } else {
-                            match (input_value, flag_value) {
-                                (InputValue::Int(input_value), FlagValue::Int(flag_value)) => {
-                                    *flag_value = Some(input_value);
-                                }
-                                (InputValue::Float(input_value), FlagValue::Float(flag_value)) => {
-                                    *flag_value = Some(input_value);
-                                }
-                                (
-                                    InputValue::String(input_value),
-                                    FlagValue::String(flag_value),
-                                ) => {
-                                    *flag_value = Some(input_value);
-                                }
-                                (
-                                    InputValue::VecInt(input_value),
-                                    FlagValue::VecInt(flag_value),
-                                ) => {
-                                    *flag_value = input_value;
-                                }
-                                (
-                                    InputValue::VecString(input_value),
-                                    FlagValue::VecString(flag_value),
-                                ) => {
-                                    *flag_value = input_value;
-                                }
-                                (InputValue::Path(input_value), FlagValue::Path(flag_value)) => {
-                                    *flag_value = Some(input_value);
-                                }
-                                _ => {}
+                        match (input_value, flag_value) {
+                            (InputValue::Int(input_value), FlagValue::Int(flag_value)) => {
+                                *flag_value = Some(input_value);
                             }
-                            self.editing_flag = None;
+                            (InputValue::Float(input_value), FlagValue::Float(flag_value)) => {
+                                *flag_value = Some(input_value);
+                            }
+                            (InputValue::String(input_value), FlagValue::String(flag_value)) => {
+                                *flag_value = Some(input_value);
+                            }
+                            (InputValue::VecInt(input_value), FlagValue::VecInt(flag_value)) => {
+                                *flag_value = input_value;
+                            }
+                            (
+                                InputValue::VecString(input_value),
+                                FlagValue::VecString(flag_value),
+                            ) => {
+                                *flag_value = input_value;
+                            }
+                            (InputValue::Path(input_value), FlagValue::Path(flag_value)) => {
+                                *flag_value = Some(input_value);
+                            }
+                            _ => {}
                         }
+                        self.editing_flag = None;
                     }
                     EventResult::Cancel => {
                         match flag_value {
@@ -321,6 +395,7 @@ impl<'a> App<'a> {
                         }
                         self.editing_flag = None;
                     }
+                    EventResult::Consumed => self.error = input.error(),
                     _ => {}
                 };
             } else if let Some(scan_type) = &self.tcp_scan_type_state.editing_scan_type {
@@ -519,6 +594,10 @@ impl<'a> App<'a> {
             .scroll
             .saturating_sub(SECTIONS[self.focused_section].height);
         self.scroll_state = self.scroll_state.position(self.scroll as usize);
+        self.focused_flag = SECTIONS[self.focused_section].start;
+        if self.focused_flag.get_variant_count().is_some() {
+            self.focused_radio_index = Some(0);
+        }
     }
 
     fn scroll_down(&mut self) {
@@ -531,5 +610,9 @@ impl<'a> App<'a> {
         );
         self.scroll_state = self.scroll_state.position(self.scroll as usize);
         self.focused_section = (self.focused_section + 1).min(SECTIONS.len() - 1);
+        self.focused_flag = SECTIONS[self.focused_section].start;
+        if self.focused_flag.get_variant_count().is_some() {
+            self.focused_radio_index = Some(0);
+        }
     }
 }

@@ -308,10 +308,10 @@ impl<'a> RadioGroup<'a> {
                 .spacing(self.spacing)
                 .split(row_layout[row_index]);
 
-            for (col_idx, (option, &radio_area)) in
+            for (col_index, (option, &radio_area)) in
                 row_options.iter_mut().zip(col_layout.iter()).enumerate()
             {
-                let index = start_index + col_idx;
+                let index = start_index + col_index;
                 let mut radio = match option {
                     RadioOption::Text(label) => RadioButton::new(label.as_str()).with_input(None),
                     RadioOption::Input(input) => RadioButton::new("")

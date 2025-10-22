@@ -83,32 +83,67 @@ pub struct ScanTechnique {
 #[derive(Clone, Debug, Default, Display, EnumCount, EnumMessage, Eq, PartialEq)]
 pub enum TcpScanType {
     #[default]
-    #[strum(to_string = "SYN (-sS)")]
+    #[strum(
+        to_string = "SYN",
+        detailed_message = "-sS: Stealthy half-open scan that doesn't complete handshake. Default scan requiring root. Fast and relatively undetectable."
+    )]
     Syn, // -sS (default)
-    #[strum(to_string = "Connect (-sT)")]
+    #[strum(
+        to_string = "Connect",
+        detailed_message = "-sT: Completes full TCP connection. Used when no root privileges available. More detectable but works without special access."
+    )]
     Connect, // -sT
-    #[strum(to_string = "ACK (-sA)")]
+    #[strum(
+        to_string = "ACK",
+        detailed_message = "-sA: Maps firewall rules by sending ACK packets. Determines filtering but doesn't identify open ports. Useful for firewall analysis."
+    )]
     Ack, // -sA
-    #[strum(to_string = "Window (-sW)")]
+    #[strum(
+        to_string = "Window",
+        detailed_message = "-sW: Examines TCP window field in responses. Can distinguish open from closed ports on certain systems. More informative than ACK scan."
+    )]
     Window, // -sW
-    #[strum(to_string = "Maimon (-sM)")]
+    #[strum(
+        to_string = "Maimon",
+        detailed_message = "-sM: Sends FIN/ACK packets to exploit BSD TCP stacks. Named after discoverer Uriel Maimon. Rarely effective on modern systems."
+    )]
     Maimon, // -sM
-    #[strum(to_string = "Null (-sN)")]
+    #[strum(
+        to_string = "Null",
+        detailed_message = "-sN: Sends packets with no flags set. Stealthy technique bypassing non-stateful firewalls. Works on RFC-compliant Unix/Linux systems."
+    )]
     Null, // -sN
-    #[strum(to_string = "FIN (-sF)")]
+    #[strum(
+        to_string = "FIN",
+        detailed_message = "-sF: Sends only FIN flag. Stealthy method to evade basic firewalls and detection systems. Effective against older security devices."
+    )]
     Fin, // -sF
-    #[strum(to_string = "Xmas (-sX)")]
+    #[strum(
+        to_string = "Xmas",
+        detailed_message = "-sX: Sets FIN, PSH, URG flags (lit like Christmas tree). Bypasses simple packet filters. Works on Unix but not Windows systems."
+    )]
     Xmas, // -sX
-    #[strum(to_string = "IP protocol (-sO)")]
+    #[strum(
+        to_string = "IP protocol",
+        detailed_message = "-sO: Determines which IP protocols host supports (TCP, UDP, ICMP, etc). Sends raw packets to identify protocol implementations."
+    )]
     IpProtocol, // -sO
-    #[strum(to_string = "Idle", message = "Zombie host", detailed_message = "-sI")]
+    #[strum(
+        to_string = "Idle",
+        message = "string",
+        detailed_message = "-sI: Ultra-stealthy technique using zombie host as proxy. Completely masks your IP address. Complex setup but maximum anonymity."
+    )]
     Idle(String), // -sI (zombie host)
-    #[strum(to_string = "FTP", message = "FTP relay host", detailed_message = "-b")]
+    #[strum(
+        to_string = "FTP",
+        message = "string",
+        detailed_message = "-b: Relays scan through FTP server. Exploits legacy FTP proxy feature. Rarely works on modern servers but masks source IP."
+    )]
     Ftp(String), // -b (FTP bounce)
     #[strum(
         to_string = "Scanflags",
-        message = "Custom TCP scan",
-        detailed_message = "--scanflags"
+        message = "string",
+        detailed_message = "--scanflags: Sets custom TCP flags for scan packets. Accepts numeric value or symbolic names (URG, ACK, PSH, RST, SYN, FIN). Advanced technique for custom probes and evasion."
     )]
     Scanflags(String), // --scanflags
 }
@@ -142,6 +177,9 @@ impl TcpScanType {
             6 => Some(TcpScanType::Fin),
             7 => Some(TcpScanType::Xmas),
             8 => Some(TcpScanType::IpProtocol),
+            9 => Some(TcpScanType::Idle(String::new())),
+            10 => Some(TcpScanType::Ftp(String::new())),
+            11 => Some(TcpScanType::Scanflags(String::new())),
             _ => unreachable!(),
         }
     }
@@ -168,9 +206,15 @@ impl Default for ScanTechnique {
 
 #[derive(Clone, Copy, Debug, Display, EnumCount, EnumIter, EnumMessage, Eq, PartialEq)]
 pub enum SctpScanType {
-    #[strum(to_string = "SCTP init (-sY)")]
+    #[strum(
+        to_string = "SCTP init",
+        detailed_message = "-sY: Checks SCTP associations. Similar speed and stealth to TCP SYN. Useful for telecommunications and signaling protocols."
+    )]
     Init, // -sY
-    #[strum(to_string = "SCTP cookie (-sZ)")]
+    #[strum(
+        to_string = "SCTP cookie",
+        detailed_message = "-sZ: Stealthier SCTP technique. Can bypass firewalls blocking INIT. Less reliable but harder to detect than INIT scan."
+    )]
     Cookie, // -sZ
 }
 
@@ -265,34 +309,69 @@ impl Default for TimingPerformance {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Display, EnumCount, EnumIter, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Display, EnumCount, EnumIter, EnumMessage, Eq, PartialEq)]
 pub enum TimingTemplate {
-    #[strum(to_string = "Paranoid (-T0)")]
+    #[strum(
+        to_string = "Paranoid",
+        detailed_message = "-T0: Extremely slow, one port at a time. IDS evasion mode. Waits 5 minutes between probes. Use for maximum stealth."
+    )]
     Paranoid = 0,
-    #[strum(to_string = "Sneaky (-T1)")]
+    #[strum(
+        to_string = "Sneaky",
+        detailed_message = "-T1: Very slow scan for IDS evasion. Waits 15 seconds between probes. Slightly faster than paranoid but still stealthy."
+    )]
     Sneaky = 1,
-    #[strum(to_string = "Polite (-T2)")]
+    #[strum(
+        to_string = "Polite",
+        detailed_message = "-T2: Slows scan to use less bandwidth. Less intrusive to target systems. Good for production environments during business hours."
+    )]
     Polite = 2,
     #[default]
-    #[strum(to_string = "Normal (-T3)")]
+    #[strum(
+        to_string = "Normal",
+        detailed_message = "-T3: Default balanced mode. Good compromise between speed and reliability. Suitable for most scanning situations and networks."
+    )]
     Normal = 3,
-    #[strum(to_string = "Aggressive (-T4)")]
+    #[strum(
+        to_string = "Aggressive",
+        detailed_message = "-T4: Faster scan assuming reliable network. Reduces timeouts. Good for local networks or fast connections with low latency."
+    )]
     Aggressive = 4,
-    #[strum(to_string = "Insane (-T5)")]
+    #[strum(
+        to_string = "Insane",
+        detailed_message = "-T5: Maximum speed, may sacrifice accuracy. Very short timeouts. Only for very fast networks or when speed critical over accuracy."
+    )]
     Insane = 5,
 }
 
-#[derive(Clone, Copy, Debug, Display, EnumCount, EnumIter, EnumString, Eq, PartialEq)]
+#[derive(
+    Clone, Copy, Debug, Display, EnumCount, EnumIter, EnumMessage, EnumString, Eq, PartialEq,
+)]
 pub enum NsockEngine {
-    #[strum(to_string = "iocp")]
+    #[strum(
+        to_string = "iocp",
+        detailed_message = "Windows-specific high-performance asynchronous I/O mechanism. Most efficient for Windows systems. Provides scalability for large connection counts. Not available on Unix/Linux."
+    )]
     Iocp,
-    #[strum(to_string = "epoll")]
+    #[strum(
+        to_string = "epoll",
+        detailed_message = "Linux-specific scalable I/O event notification. More efficient than poll/select for many connections. Default on Linux with epoll support. Best Linux performance."
+    )]
     Epoll,
-    #[strum(to_string = "kqueue")]
+    #[strum(
+        to_string = "kqueue",
+        detailed_message = "BSD-based systems' scalable event notification (FreeBSD, OpenBSD, NetBSD, macOS). High performance on BSD platforms. Superior to select for concurrent connections."
+    )]
     Kqueue,
-    #[strum(to_string = "poll")]
+    #[strum(
+        to_string = "poll",
+        detailed_message = "Portable alternative to select without file descriptor limits. Works on most systems including Windows. Similar efficiency to select but more scalable."
+    )]
     Poll,
-    #[strum(to_string = "select")]
+    #[strum(
+        to_string = "select",
+        detailed_message = "Fallback I/O multiplexing available everywhere. Guaranteed compatibility but limited scalability. Has hardcoded maximum file descriptor limits. Least efficient engine."
+    )]
     Select,
 }
 

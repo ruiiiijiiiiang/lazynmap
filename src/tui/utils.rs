@@ -53,7 +53,7 @@ pub fn initialize_text_inputs(scan: &mut NmapScan, input_map: &mut HashMap<NmapF
     }
 
     // Float inputs
-    for &flag in [NmapFlag::MinRate, NmapFlag::MaxRate, NmapFlag::PortRatio].iter() {
+    for &flag in [NmapFlag::PortRatio, NmapFlag::MinRate, NmapFlag::MaxRate].iter() {
         let mut input = TextInput::new(FloatParser)
             .with_label(flag.to_string())
             .with_placeholder(flag.get_message().unwrap());
@@ -167,6 +167,11 @@ pub fn render_checkbox(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: R
 
     let (label, checked, input) = match flag_value {
         FlagValue::Bool(value) => (flag.to_string(), *value, None),
+        FlagValue::Float(value) => (
+            "".to_string(),
+            value.is_some(),
+            app.input_map.get_mut(&flag),
+        ),
         FlagValue::Int(value) => (
             "".to_string(),
             value.is_some(),
