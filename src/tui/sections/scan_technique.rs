@@ -3,6 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
     widgets::Block,
 };
+use strum::IntoEnumIterator;
 
 use crate::{
     consts::{self, IndexableEnum},
@@ -57,6 +58,18 @@ pub fn render_scan_technique(app: &mut App, frame: &mut Frame, area: Rect) {
             (NmapFlag::TcpScanType, Some(index)) => Some(index),
             _ => None,
         })
+        .with_marked(
+            TcpScanType::iter()
+                .enumerate()
+                .filter_map(|(index, scan_type)| {
+                    if scan_type.requires_admin() {
+                        Some(index)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        )
         .with_editing(match app.tcp_scan_type_state.editing_scan_type {
             Some(TcpScanType::Idle(_)) => Some(consts::IDLE_SCAN_TYPE_INDEX),
             Some(TcpScanType::Ftp(_)) => Some(consts::FTP_SCAN_TYPE_INDEX),

@@ -125,7 +125,7 @@ pub enum NmapFlag {
     )]
     IcmpNetmask,
     #[strum(
-        to_string = "IP protocol ping",
+        to_string = "IP ping",
         message = "list of numbers",
         detailed_message = "-PO: Tests multiple IP protocols for discovery. Sends packets with different protocol numbers. Comprehensive discovery technique."
     )]
@@ -652,25 +652,8 @@ pub enum NmapFlag {
     Help,
 }
 
-pub enum FlagValue<'a> {
-    // Base types
-    Bool(&'a mut bool),
-    Int(&'a mut Option<u32>),
-    Float(&'a mut Option<f32>),
-    String(&'a mut Option<String>),
-    VecInt(&'a mut Vec<u32>),
-    VecString(&'a mut Vec<String>),
-    Path(&'a mut Option<PathBuf>),
-
-    // Enum types
-    TcpScanType(&'a mut Option<TcpScanType>),
-    SctpScanType(&'a mut Option<SctpScanType>),
-    NsockEngine(&'a mut Option<NsockEngine>),
-    TimingTemplate(&'a mut Option<TimingTemplate>),
-}
-
 impl NmapFlag {
-    pub fn get_flag_value<'a>(self, scan: &'a mut NmapScan) -> FlagValue<'a> {
+    pub fn get_flag_value<'a>(&self, scan: &'a mut NmapScan) -> FlagValue<'a> {
         match self {
             // Target specification
             NmapFlag::Targets => FlagValue::VecString(&mut scan.target_specification.targets),
@@ -828,22 +811,24 @@ impl NmapFlag {
     pub fn next(&self) -> Self {
         let all_flags = NmapFlag::iter().collect::<Vec<_>>();
         let index = all_flags.iter().position(|f| f == self).unwrap();
-        let next_index = (index + 1) % all_flags.len();
-        all_flags[next_index]
+        all_flags.get(index + 1).copied().unwrap_or(*self)
     }
 
     pub fn prev(&self) -> Self {
         let all_flags = NmapFlag::iter().collect::<Vec<_>>();
         let index = all_flags.iter().position(|f| f == self).unwrap();
-        let prev_index = (index + all_flags.len() - 1) % all_flags.len();
-        all_flags[prev_index]
+        if index > 0 {
+            all_flags[index - 1]
+        } else {
+            *self
+        }
     }
 
     pub fn first() -> Self {
         NmapFlag::iter().next().unwrap()
     }
 
-    pub fn get_variant_count(self) -> Option<usize> {
+    pub fn get_variant_count(&self) -> Option<usize> {
         match self {
             NmapFlag::TcpScanType => Some(TcpScanType::COUNT),
             NmapFlag::SctpScanType => Some(SctpScanType::COUNT),
@@ -852,4 +837,43 @@ impl NmapFlag {
             _ => None,
         }
     }
+
+    pub fn requires_admin(&self) -> bool {
+        ADMIN_FLAGS.contains(self)
+    }
 }
+
+#[derive(Debug)]
+pub enum FlagValue<'a> {
+    // Base types
+    Bool(&'a mut bool),
+    Int(&'a mut Option<u32>),
+    Float(&'a mut Option<f32>),
+    String(&'a mut Option<String>),
+    VecInt(&'a mut Vec<u32>),
+    VecString(&'a mut Vec<String>),
+    Path(&'a mut Option<PathBuf>),
+
+    // Enum types
+    TcpScanType(&'a mut Option<TcpScanType>),
+    SctpScanType(&'a mut Option<SctpScanType>),
+    NsockEngine(&'a mut Option<NsockEngine>),
+    TimingTemplate(&'a mut Option<TimingTemplate>),
+}
+
+pub const ADMIN_FLAGS: [NmapFlag; 14] = [
+    NmapFlag::SynDiscovery,
+    NmapFlag::AckDiscovery,
+    NmapFlag::UdpDiscovery,
+    NmapFlag::SctpDiscovery,
+    NmapFlag::IcmpEcho,
+    NmapFlag::IcmpTimestamp,
+    NmapFlag::IpProtocolPing,
+    NmapFlag::TcpScanType,
+    NmapFlag::UdpScan,
+    NmapFlag::SctpScanType,
+    NmapFlag::OsDetection,
+    NmapFlag::SpoofIp,
+    NmapFlag::SpoofMac,
+    NmapFlag::SendEth,
+];

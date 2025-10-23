@@ -14,6 +14,7 @@ pub struct Checkbox<'a> {
     label: String,
     checked: bool,
     focused: bool,
+    marked: bool,
     input: Option<&'a mut InputWidget>,
     input_editing: bool,
     checked_style: Style,
@@ -28,6 +29,7 @@ impl<'a> Checkbox<'a> {
             label: label.into(),
             checked: false,
             focused: false,
+            marked: false,
             input: None,
             input_editing: false,
             checked_style: Style::default().fg(Color::Green),
@@ -44,6 +46,11 @@ impl<'a> Checkbox<'a> {
 
     pub fn with_focused(mut self, focused: bool) -> Self {
         self.focused = focused;
+        self
+    }
+
+    pub fn with_marked(mut self, marked: bool) -> Self {
+        self.marked = marked;
         self
     }
 
@@ -120,10 +127,14 @@ impl<'a> Checkbox<'a> {
             self.label_style
         };
 
-        // Create line with checkbox and label
+        let marker = if self.marked {
+            Span::styled("*", Style::default().fg(Color::Red))
+        } else {
+            Span::styled(" ", label_style)
+        };
         let line = Line::from(vec![
             Span::styled(checkbox_text, checkbox_style),
-            Span::styled(" ", label_style),
+            marker,
             Span::styled(&self.label, label_style),
         ]);
 

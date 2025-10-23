@@ -1,3 +1,4 @@
+use arboard::Clipboard;
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers},
@@ -429,6 +430,18 @@ impl<T> TextInput<T> {
         self.error = None;
 
         match key.code {
+            KeyCode::Char('v') | KeyCode::Char('V')
+                if key
+                    .modifiers
+                    .contains(KeyModifiers::CONTROL | KeyModifiers::SHIFT) =>
+            {
+                if let Ok(mut clipboard) = Clipboard::new()
+                    && let Ok(text) = clipboard.get_text()
+                {
+                    self.set_content(text);
+                }
+                EventResult::Consumed
+            }
             KeyCode::Char(c)
                 if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT =>
             {
@@ -734,77 +747,69 @@ impl CompletingInput {
 
     fn handle_key_event(&mut self, key: KeyEvent) -> EventResult<PathBuf> {
         match self.mode {
-            CompletionMode::Editing => {
-                match key.code {
-                    KeyCode::Tab => {
-                        // Update suggestions and switch to selection mode
-                        self.completer.update_suggestions(self.input.content());
-                        if self.completer.has_suggestions() {
-                            self.mode = CompletionMode::Selecting;
-                            EventResult::Consumed
-                        } else {
-                            EventResult::Consumed
-                        }
-                    }
-                    KeyCode::Down if key.modifiers.is_empty() => {
-                        // Also allow down arrow to enter selection mode
-                        self.completer.update_suggestions(self.input.content());
-                        if self.completer.has_suggestions() {
-                            self.mode = CompletionMode::Selecting;
-                            EventResult::Consumed
-                        } else {
-                            EventResult::Consumed
-                        }
-                    }
-                    _ => {
-                        let result = self.input.handle_event(&Event::Key(key));
-                        // Update suggestions after any text change
-                        if matches!(result, EventResult::Consumed) {
-                            self.completer.update_suggestions(self.input.content());
-                        }
-                        result
+            CompletionMode::Editing => match key.code {
+                KeyCode::Down | KeyCode::Tab => {
+                    self.completer.update_suggestions(self.input.content());
+                    if self.completer.has_suggestions() {
+                        self.mode = CompletionMode::Selecting;
+                        EventResult::Consumed
+                    } else {
+                        EventResult::Consumed
                     }
                 }
-            }
-            CompletionMode::Selecting => {
-                match key.code {
-                    KeyCode::Up => {
-                        self.completer.select_prev();
-                        EventResult::Consumed
+                KeyCode::Char('v') | KeyCode::Char('V')
+                    if key
+                        .modifiers
+                        .contains(KeyModifiers::CONTROL | KeyModifiers::SHIFT) =>
+                {
+                    if let Ok(mut clipboard) = Clipboard::new()
+                        && let Ok(text) = clipboard.get_text()
+                    {
+                        self.set_content(text);
                     }
-                    KeyCode::Down => {
-                        self.completer.select_next();
-                        EventResult::Consumed
+                    EventResult::Consumed
+                }
+                _ => {
+                    let result = self.input.handle_event(&Event::Key(key));
+                    if matches!(result, EventResult::Consumed) {
+                        self.completer.update_suggestions(self.input.content());
                     }
-                    KeyCode::Tab | KeyCode::Enter => {
-                        // Accept selected suggestion
-                        if let Some(selected) = self.completer.selected() {
-                            let mut path_str = selected.to_string_lossy().to_string();
-                            if selected.is_dir() && !path_str.ends_with('/') {
-                                path_str.push('/');
-                            }
-                            self.input.set_content(path_str);
-                            self.completer.update_suggestions(self.input.content());
+                    result
+                }
+            },
+            CompletionMode::Selecting => match key.code {
+                KeyCode::BackTab | KeyCode::Up => {
+                    self.completer.select_prev();
+                    EventResult::Consumed
+                }
+                KeyCode::Tab | KeyCode::Down => {
+                    self.completer.select_next();
+                    EventResult::Consumed
+                }
+                KeyCode::Enter => {
+                    if let Some(selected) = self.completer.selected() {
+                        let mut path_str = selected.to_string_lossy().to_string();
+                        let is_dir = selected.is_dir();
+                        if is_dir && !path_str.ends_with('/') {
+                            path_str.push('/');
                         }
-                        self.mode = CompletionMode::Editing;
-
-                        // If Enter, try to submit
-                        if key.code == KeyCode::Enter {
+                        self.input.set_content(path_str);
+                        self.completer.update_suggestions(self.input.content());
+                        if !is_dir {
                             return self.input.handle_event(&Event::Key(key));
                         }
-                        EventResult::Consumed
                     }
-                    KeyCode::Esc => {
-                        self.mode = CompletionMode::Editing;
-                        EventResult::Consumed
-                    }
-                    // Any other key switches back to editing mode
-                    _ => {
-                        self.mode = CompletionMode::Editing;
-                        self.input.handle_event(&Event::Key(key))
-                    }
+                    EventResult::Consumed
                 }
-            }
+                KeyCode::Esc => {
+                    self.mode = CompletionMode::Editing;
+                    EventResult::Consumed
+                }
+                _ => {
+                    self.mode = CompletionMode::Editing;
+                    self.input.handle_event(&Event::Key(key))
+                }
+            },
         }
     }
 
@@ -876,7 +881,6 @@ impl CompletingInput {
                     .unwrap_or(path.to_str().unwrap_or("?"))
                     .to_string();
 
-                // Add trailing slash for directories
                 if path.is_dir() {
                     display.push('/');
                 }
@@ -884,9 +888,7 @@ impl CompletingInput {
                 let style = if i == self.completer.selected_index
                     && self.mode == CompletionMode::Selecting
                 {
-                    Style::default().bg(Color::Blue).fg(Color::White)
-                } else if i == self.completer.selected_index {
-                    Style::default().fg(Color::Yellow)
+                    Style::default().bg(Color::Yellow).fg(Color::Black)
                 } else {
                     Style::default()
                 };

@@ -1,13 +1,18 @@
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Flex, Layout, Rect},
+    prelude::*,
+    style::Style,
+    text::{Line, Span},
+    widgets::{Block, BorderType, Paragraph},
 };
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, process::Command, rc::Rc};
 use strum::EnumMessage;
 
 use crate::{
     scan::{
-        flags::{FlagValue, NmapFlag},
+        builder::NmapCommandBuilder,
+        flags::{ADMIN_FLAGS, FlagValue, NmapFlag},
         model::{NmapScan, TcpScanType},
     },
     tui::{
@@ -207,7 +212,8 @@ pub fn render_checkbox(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: R
     if let Some(input) = input {
         checkbox = checkbox
             .with_input(Some(input))
-            .with_editing(app.editing_flag == Some(flag));
+            .with_editing(app.editing_flag == Some(flag))
+            .with_marked(flag.requires_admin());
     }
 
     checkbox.render(area, frame.buffer_mut());
@@ -270,4 +276,76 @@ pub fn even_vertical_split(area: Rect, num_split: u16) -> Rc<[Rect]> {
         .constraints(vec![Constraint::Length(1); num_split as usize])
         .spacing(1)
         .split(area)
+}
+
+pub fn render_help(app: &mut App, frame: &mut Frame, area: Rect) {
+    let help_block = Block::bordered()
+        .border_type(BorderType::Thick)
+        .title(Line::from("Help").centered());
+    let mut help_lines = vec![Line::from("* : requires root").red()];
+    if let Some(flag) = app.editing_flag
+        && let Some(input) = app.input_map.get(&flag)
+    {
+        if let InputWidget::Path(_) = input {
+            help_lines.extend(vec![
+                Line::from(" : next selection"),
+                Line::from(" : previous selection"),
+            ]);
+        }
+        help_lines.extend(vec![Line::from("󰌑 : confirm"), Line::from("󱊷 : cancel")]);
+    } else {
+        help_lines.extend(vec![
+            Line::from("J/ : next section"),
+            Line::from("K/ : previous section"),
+            Line::from("L/ : next flag"),
+            Line::from("H/ : previous flags"),
+            Line::from("󱁐 : toggle flag"),
+            Line::from("C : clear flag"),
+        ]);
+        if app.input_map.contains_key(&app.focused_flag) {
+            help_lines.extend(vec![Line::from("󰌑 : edit value")]);
+        }
+        help_lines.extend(vec![Line::from("Q : quit")]);
+    }
+    let help_list = Paragraph::new(help_lines).block(help_block);
+    frame.render_widget(help_list, area);
+}
+
+pub fn render_footer(scan: &mut NmapScan, frame: &mut Frame, area: Rect) {
+    let footer_block = Block::bordered()
+        .border_type(BorderType::Thick)
+        .title(Line::from("Nmap Command").centered());
+    let requires_admin = ADMIN_FLAGS.iter().any(|flag| {
+        let flag_value = flag.get_flag_value(scan);
+        match flag_value {
+            FlagValue::Bool(flag_value) => *flag_value,
+            FlagValue::String(flag_value) => flag_value.is_some(),
+            FlagValue::VecInt(flag_value) => !flag_value.is_empty(),
+            FlagValue::TcpScanType(flag_value) => {
+                matches!(flag_value, Some(flag_value) if flag_value.requires_admin())
+            }
+            FlagValue::SctpScanType(flag_value) => flag_value.is_some(),
+            _ => false,
+        }
+    });
+    let mut footer_spans = vec![Span::from(NmapCommandBuilder::build(scan))];
+    if requires_admin {
+        footer_spans.insert(0, Span::from("sudo ").style(Style::default().red()));
+    }
+    let footer_content = Paragraph::new(Line::from(footer_spans))
+        .centered()
+        .block(footer_block);
+    frame.render_widget(footer_content, area);
+}
+
+pub fn execute_nmap(scan: &mut NmapScan) {
+    let command = NmapCommandBuilder::build(scan);
+    let args: Vec<&str> = command.split_whitespace().collect();
+
+    let status = Command::new("nmap").args(&args[1..]).status();
+
+    match status {
+        Ok(exit_status) => println!("Command exited with: {}", exit_status),
+        Err(e) => eprintln!("Failed to execute: {}", e),
+    }
 }

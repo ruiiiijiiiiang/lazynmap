@@ -12,7 +12,6 @@ use strum::EnumMessage;
 use crate::{
     consts::{self, IndexableEnum},
     scan::{
-        builder::NmapCommandBuilder,
         flags::{FlagValue, NmapFlag},
         model::{NmapScan, NsockEngine, SctpScanType, TcpScanType, TimingTemplate},
     },
@@ -25,7 +24,10 @@ use crate::{
             service_detection::render_service_detection,
             target_specification::render_target_specification, timing::render_timing,
         },
-        utils::{TcpScanTypeState, initialize_scan_type_state, initialize_text_inputs},
+        utils::{
+            TcpScanTypeState, execute_nmap, initialize_scan_type_state, initialize_text_inputs,
+            render_footer, render_help,
+        },
         widgets::text_input::{EventResult, InputValue, InputWidget},
     },
 };
@@ -190,7 +192,7 @@ impl<'a> App<'a> {
             .constraints([
                 Constraint::Min(0),
                 Constraint::Length(9),
-                Constraint::Length(7),
+                Constraint::Length(12),
             ])
             .split(top_chunks[0]);
 
@@ -244,18 +246,7 @@ impl<'a> App<'a> {
             .block(detail_block);
         frame.render_widget(detail_content, left_chunks[1]);
 
-        let navigation_block = Block::bordered()
-            .border_type(BorderType::Thick)
-            .title(Line::from("Keys").centered());
-        let navigation_list = Paragraph::new(vec![
-            Line::from("J / K : navigate sections"),
-            Line::from("H / L : navigate flags"),
-            Line::from("󱁐 : toggle flag"),
-            Line::from("󰌑 : edit value"),
-            Line::from("Q : quit"),
-        ])
-        .block(navigation_block);
-        frame.render_widget(navigation_list, left_chunks[2]);
+        render_help(self, frame, left_chunks[2]);
 
         let main_block = Block::bordered()
             .border_type(BorderType::Thick)
@@ -334,13 +325,7 @@ impl<'a> App<'a> {
                     .block(footer_block);
             frame.render_widget(footer_content, chunks[1]);
         } else {
-            let footer_block = Block::bordered()
-                .border_type(BorderType::Thick)
-                .title(Line::from("Nmap Command").centered());
-            let footer_content = Paragraph::new(NmapCommandBuilder::build(self.scan))
-                .centered()
-                .block(footer_block);
-            frame.render_widget(footer_content, chunks[1]);
+            render_footer(self.scan, frame, chunks[1]);
         }
 
         if let Some(flag) = self.editing_flag
@@ -426,43 +411,10 @@ impl<'a> App<'a> {
                     KeyCode::Char('q') => {
                         self.running = false;
                     }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        self.scroll_down();
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        self.scroll_up();
-                    }
-                    KeyCode::Char('l') | KeyCode::Right => {
-                        match (
-                            self.focused_radio_index,
-                            self.focused_flag.get_variant_count(),
-                        ) {
-                            (Some(index), Some(count)) if index + 1 < count => {
-                                self.focused_radio_index = Some(index + 1);
-                            }
-                            _ => {
-                                self.focused_flag = self.focused_flag.next();
-                                if self.focused_flag.get_variant_count().is_some() {
-                                    self.focused_radio_index = Some(0);
-                                } else {
-                                    self.focused_radio_index = None;
-                                }
-                            }
-                        }
-                    }
-                    KeyCode::Char('h') | KeyCode::Left => match self.focused_radio_index {
-                        Some(index) if index > 0 => {
-                            self.focused_radio_index = Some(index - 1);
-                        }
-                        _ => {
-                            self.focused_flag = self.focused_flag.prev();
-                            if let Some(count) = self.focused_flag.get_variant_count() {
-                                self.focused_radio_index = Some(count.saturating_sub(1));
-                            } else {
-                                self.focused_radio_index = None;
-                            }
-                        }
-                    },
+                    KeyCode::Char('j') | KeyCode::Down => self.next_section(),
+                    KeyCode::Char('k') | KeyCode::Up => self.prev_section(),
+                    KeyCode::Char('l') | KeyCode::Right => self.next_flag(),
+                    KeyCode::Char('h') | KeyCode::Left => self.prev_flag(),
                     KeyCode::Char(' ') => match flag_value {
                         FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
                         FlagValue::TcpScanType(flag_value) => match self.focused_radio_index {
@@ -542,6 +494,7 @@ impl<'a> App<'a> {
                                 *flag_value = Vec::new()
                             } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
                                 && let Some(InputValue::VecInt(input_value)) = input.typed_value()
+                                && !input_value.is_empty()
                             {
                                 *flag_value = input_value;
                             } else {
@@ -554,6 +507,7 @@ impl<'a> App<'a> {
                             } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
                                 && let Some(InputValue::VecString(input_value)) =
                                     input.typed_value()
+                                && !input_value.is_empty()
                             {
                                 *flag_value = input_value;
                             } else {
@@ -572,6 +526,19 @@ impl<'a> App<'a> {
                             }
                         }
                     },
+                    KeyCode::Char('c') => match flag_value {
+                        FlagValue::Bool(flag_value) => *flag_value = false,
+                        FlagValue::TcpScanType(flag_value) => *flag_value = None,
+                        FlagValue::SctpScanType(flag_value) => *flag_value = None,
+                        FlagValue::TimingTemplate(flag_value) => *flag_value = None,
+                        FlagValue::NsockEngine(flag_value) => *flag_value = None,
+                        FlagValue::Int(flag_value) => *flag_value = None,
+                        FlagValue::Float(flag_value) => *flag_value = None,
+                        FlagValue::String(flag_value) => *flag_value = None,
+                        FlagValue::VecInt(flag_value) => *flag_value = Vec::new(),
+                        FlagValue::VecString(flag_value) => *flag_value = Vec::new(),
+                        FlagValue::Path(flag_value) => *flag_value = None,
+                    },
                     KeyCode::Enter => match flag_value {
                         FlagValue::Int(_)
                         | FlagValue::Float(_)
@@ -581,6 +548,10 @@ impl<'a> App<'a> {
                         | FlagValue::Path(_) => self.editing_flag = Some(self.focused_flag),
                         _ => (),
                     },
+                    KeyCode::Char('x') => {
+                        execute_nmap(self.scan);
+                        self.running = false;
+                    }
                     _ => {}
                 }
             }
@@ -588,7 +559,7 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn scroll_up(&mut self) {
+    fn prev_section(&mut self) {
         self.focused_section = self.focused_section.saturating_sub(1);
         self.scroll = self
             .scroll
@@ -600,7 +571,7 @@ impl<'a> App<'a> {
         }
     }
 
-    fn scroll_down(&mut self) {
+    fn next_section(&mut self) {
         self.scroll = (self.scroll + SECTIONS[self.focused_section].height).min(
             SECTIONS
                 .iter()
@@ -613,6 +584,51 @@ impl<'a> App<'a> {
         self.focused_flag = SECTIONS[self.focused_section].start;
         if self.focused_flag.get_variant_count().is_some() {
             self.focused_radio_index = Some(0);
+        }
+    }
+
+    fn prev_flag(&mut self) {
+        match self.focused_radio_index {
+            Some(index) if index > 0 => {
+                self.focused_radio_index = Some(index - 1);
+            }
+            _ => {
+                self.focused_flag = self.focused_flag.prev();
+                if let Some(count) = self.focused_flag.get_variant_count() {
+                    self.focused_radio_index = Some(count.saturating_sub(1));
+                } else {
+                    self.focused_radio_index = None;
+                }
+                if self.focused_flag.as_index() < SECTIONS[self.focused_section].start.as_index() {
+                    self.prev_section();
+                }
+            }
+        }
+    }
+
+    fn next_flag(&mut self) {
+        match (
+            self.focused_radio_index,
+            self.focused_flag.get_variant_count(),
+        ) {
+            (Some(index), Some(count)) if index + 1 < count => {
+                self.focused_radio_index = Some(index + 1);
+            }
+            _ => {
+                self.focused_flag = self.focused_flag.next();
+                if self.focused_flag.get_variant_count().is_some() {
+                    self.focused_radio_index = Some(0);
+                } else {
+                    self.focused_radio_index = None;
+                }
+                if self.focused_flag.as_index()
+                    == SECTIONS[(self.focused_section + 1).min(SECTIONS.len() - 1)]
+                        .start
+                        .as_index()
+                {
+                    self.next_section();
+                }
+            }
         }
     }
 }

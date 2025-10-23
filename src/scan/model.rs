@@ -80,19 +80,19 @@ pub struct ScanTechnique {
     pub sctp: Option<SctpScanType>,
 }
 
-#[derive(Clone, Debug, Default, Display, EnumCount, EnumMessage, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Display, EnumCount, EnumIter, EnumMessage, Eq, PartialEq)]
 pub enum TcpScanType {
     #[default]
     #[strum(
         to_string = "SYN",
         detailed_message = "-sS: Stealthy half-open scan that doesn't complete handshake. Default scan requiring root. Fast and relatively undetectable."
     )]
-    Syn, // -sS (default)
+    Syn, // -sS
     #[strum(
         to_string = "Connect",
         detailed_message = "-sT: Completes full TCP connection. Used when no root privileges available. More detectable but works without special access."
     )]
-    Connect, // -sT
+    Connect, // -sT (default)
     #[strum(
         to_string = "ACK",
         detailed_message = "-sA: Maps firewall rules by sending ACK packets. Determines filtering but doesn't identify open ports. Useful for firewall analysis."
@@ -184,7 +184,7 @@ impl TcpScanType {
         }
     }
 
-    pub fn with_value(self, value: String) -> Self {
+    pub fn with_value(&self, value: String) -> Self {
         match self {
             TcpScanType::Idle(_) => TcpScanType::Idle(value),
             TcpScanType::Ftp(_) => TcpScanType::Ftp(value),
@@ -192,12 +192,16 @@ impl TcpScanType {
             _ => unreachable!(),
         }
     }
+
+    pub fn requires_admin(&self) -> bool {
+        !matches!(self, TcpScanType::Connect)
+    }
 }
 
 impl Default for ScanTechnique {
     fn default() -> Self {
         ScanTechnique {
-            tcp: Some(TcpScanType::Syn),
+            tcp: Some(TcpScanType::Connect),
             udp: false,
             sctp: None,
         }

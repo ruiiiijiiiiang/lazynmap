@@ -13,6 +13,7 @@ pub struct RadioButton<'a> {
     label: String,
     selected: bool,
     focused: bool,
+    marked: bool,
     input: Option<&'a mut InputWidget>,
     input_editing: bool,
     selected_style: Style,
@@ -27,6 +28,7 @@ impl<'a> RadioButton<'a> {
             label: label.into(),
             selected: false,
             focused: false,
+            marked: false,
             input: None,
             input_editing: false,
             selected_style: Style::default().fg(Color::Green),
@@ -43,6 +45,11 @@ impl<'a> RadioButton<'a> {
 
     pub fn with_focused(mut self, focused: bool) -> Self {
         self.focused = focused;
+        self
+    }
+
+    pub fn with_marked(mut self, marked: bool) -> Self {
+        self.marked = marked;
         self
     }
 
@@ -116,9 +123,14 @@ impl<'a> RadioButton<'a> {
             self.label_style
         };
 
+        let marker = if self.marked {
+            Span::styled("*", Style::default().fg(Color::Red))
+        } else {
+            Span::styled(" ", label_style)
+        };
         let line = Line::from(vec![
             Span::styled(radio_text, radio_style),
-            Span::raw(" "),
+            marker,
             Span::styled(&self.label, label_style),
         ]);
 
@@ -164,6 +176,7 @@ pub struct RadioGroup<'a> {
     options: Vec<RadioOption<'a>>,
     selected_index: Option<usize>,
     focused_index: Option<usize>,
+    marked_indices: Vec<usize>,
     editing_index: Option<usize>,
     selected_style: Style,
     unselected_style: Style,
@@ -179,6 +192,7 @@ impl<'a> RadioGroup<'a> {
             options: options.into_iter().map(|s| s.into()).collect(),
             selected_index: None,
             focused_index: None,
+            marked_indices: Vec::new(),
             editing_index: None,
             selected_style: Style::default().fg(Color::Green),
             unselected_style: Style::default().fg(Color::Gray),
@@ -196,6 +210,11 @@ impl<'a> RadioGroup<'a> {
 
     pub fn with_focused(mut self, index: Option<usize>) -> Self {
         self.focused_index = index;
+        self
+    }
+
+    pub fn with_marked(mut self, indices: Vec<usize>) -> Self {
+        self.marked_indices = indices;
         self
     }
 
@@ -320,6 +339,7 @@ impl<'a> RadioGroup<'a> {
                 }
                 .with_selected(self.selected_index == Some(index))
                 .with_focused(self.focused_index == Some(index))
+                .with_marked(self.marked_indices.contains(&index))
                 .with_selected_style(self.selected_style)
                 .with_unselected_style(self.unselected_style)
                 .with_label_style(self.label_style)
