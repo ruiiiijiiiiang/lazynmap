@@ -119,8 +119,8 @@ pub fn render_timing(app: &mut App, frame: &mut Frame, area: Rect) {
         frame.buffer_mut(),
     );
 
-    let nsock_block = Block::bordered().title("Timing template");
-    frame.render_widget(nsock_block, row_chunks[1]);
+    let timing_block = Block::bordered().title("Timing template");
+    frame.render_widget(timing_block, row_chunks[1]);
     let mut timing_radios = RadioGroup::new(
         TimingTemplate::all_labels()
             .iter()

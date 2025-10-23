@@ -2,12 +2,9 @@ use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode},
     prelude::*,
-    widgets::{
-        Block, BorderType, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
-    },
+    widgets::ScrollbarState,
 };
 use std::{collections::HashMap, error::Error};
-use strum::EnumMessage;
 
 use crate::{
     consts::{self, IndexableEnum},
@@ -16,97 +13,19 @@ use crate::{
         model::{NmapScan, NsockEngine, SctpScanType, TcpScanType, TimingTemplate},
     },
     tui::{
-        sections::{
-            evasion_spoof::render_evasion_spoof, host_discovery::render_host_discovery,
-            miscellaneous::render_miscellaneous, nse_script::render_nse_script,
-            os_detection::render_os_detection, output::render_output,
-            port_specification::render_port_specification, scan_technique::render_scan_technique,
-            service_detection::render_service_detection,
-            target_specification::render_target_specification, timing::render_timing,
-        },
         utils::{
-            TcpScanTypeState, execute_nmap, initialize_scan_type_state, initialize_text_inputs,
-            render_footer, render_help,
+            SECTIONS, TcpScanTypeState, initialize_scan_type_state, initialize_text_inputs,
+            render_details, render_footer, render_help, render_main, render_sections,
+            requires_admin,
         },
         widgets::text_input::{EventResult, InputValue, InputWidget},
     },
 };
 
-struct SectionData {
-    name: &'static str,
-    height: u16,
-    render: fn(&mut App, &mut Frame, Rect),
-    start: NmapFlag,
+pub struct AppResult {
+    pub execute: bool,
+    pub requires_admin: bool,
 }
-
-const SECTIONS: [SectionData; 11] = [
-    SectionData {
-        name: "Target Specification",
-        height: 11,
-        render: render_target_specification,
-        start: NmapFlag::Targets,
-    },
-    SectionData {
-        name: "Host Discovery",
-        height: 9,
-        render: render_host_discovery,
-        start: NmapFlag::ListScan,
-    },
-    SectionData {
-        name: "Scan Technique",
-        height: 12,
-        render: render_scan_technique,
-        start: NmapFlag::TcpScanType,
-    },
-    SectionData {
-        name: "Port Specification",
-        height: 5,
-        render: render_port_specification,
-        start: NmapFlag::Ports,
-    },
-    SectionData {
-        name: "Service Detection",
-        height: 5,
-        render: render_service_detection,
-        start: NmapFlag::VersionDetection,
-    },
-    SectionData {
-        name: "OS Detection",
-        height: 3,
-        render: render_os_detection,
-        start: NmapFlag::OsDetection,
-    },
-    SectionData {
-        name: "NSE Script",
-        height: 7,
-        render: render_nse_script,
-        start: NmapFlag::DefaultScript,
-    },
-    SectionData {
-        name: "Timing",
-        height: 17,
-        render: render_timing,
-        start: NmapFlag::MinHostgroup,
-    },
-    SectionData {
-        name: "Evasion and Spoofing",
-        height: 9,
-        render: render_evasion_spoof,
-        start: NmapFlag::FragmentPackets,
-    },
-    SectionData {
-        name: "Output",
-        height: 13,
-        render: render_output,
-        start: NmapFlag::Normal,
-    },
-    SectionData {
-        name: "Miscellaneous",
-        height: 9,
-        render: render_miscellaneous,
-        start: NmapFlag::IpV6,
-    },
-];
 
 pub struct App<'a> {
     pub scan: &'a mut NmapScan,
@@ -116,14 +35,15 @@ pub struct App<'a> {
     pub editing_flag: Option<NmapFlag>,
     pub focused_radio_index: Option<usize>,
     pub error: Option<String>,
+    pub scroll_state: ScrollbarState,
+    pub scroll: u16,
+    pub running: bool,
+    pub execute: bool,
+    pub requires_admin: bool,
 
     // Due to the fact that TCP scan types are valued enum variants, their inputs need to be set
     // up as special cases and tracked separately
     pub tcp_scan_type_state: TcpScanTypeState,
-
-    scroll_state: ScrollbarState,
-    scroll: u16,
-    running: bool,
 }
 
 impl<'a> App<'a> {
@@ -141,16 +61,16 @@ impl<'a> App<'a> {
             editing_flag: None,
             focused_radio_index: None,
             error: None,
-
-            tcp_scan_type_state,
-
             scroll_state: ScrollbarState::new(total_height.into()),
             scroll: 0,
             running: true,
+            execute: false,
+            requires_admin: false,
+            tcp_scan_type_state,
         }
     }
 
-    pub fn start(self) -> Result<(), Box<dyn Error>> {
+    pub fn start(&mut self) -> Result<AppResult, Box<dyn Error>> {
         color_eyre::install()?;
         let terminal = ratatui::init();
 
@@ -160,10 +80,13 @@ impl<'a> App<'a> {
         if let Err(err) = &res {
             println!("{err:?}");
         }
-        res
+        Result::Ok(AppResult {
+            execute: self.execute,
+            requires_admin: self.requires_admin,
+        })
     }
 
-    fn run(mut self, mut terminal: DefaultTerminal) -> Result<(), Box<dyn Error>> {
+    fn run(&mut self, mut terminal: DefaultTerminal) -> Result<(), Box<dyn Error>> {
         loop {
             terminal.draw(|frame| self.draw(frame))?;
 
@@ -192,141 +115,19 @@ impl<'a> App<'a> {
             .constraints([
                 Constraint::Min(0),
                 Constraint::Length(9),
-                Constraint::Length(12),
+                Constraint::Length(13),
             ])
             .split(top_chunks[0]);
 
-        let section_block = Block::bordered()
-            .border_type(BorderType::Thick)
-            .title(Line::from("Sections").centered());
-        let section_list = SECTIONS
-            .iter()
-            .enumerate()
-            .map(|(index, section)| {
-                if index == self.focused_section {
-                    Line::from(section.name).style(Style::default().fg(Color::Yellow))
-                } else {
-                    Line::from(section.name)
-                }
-            })
-            .collect::<Vec<_>>();
-        let section_paragraph = Paragraph::new(section_list).block(section_block);
-        frame.render_widget(section_paragraph, left_chunks[0]);
+        render_sections(self, frame, left_chunks[0]);
 
-        let detail_block = Block::bordered()
-            .border_type(BorderType::Thick)
-            .title(Line::from("Flag Details").centered());
-        let detailed_message = if self.focused_flag.get_variant_count().is_some()
-            && let Some(radio_index) = self.focused_radio_index
-        {
-            match self.focused_flag {
-                NmapFlag::TcpScanType => TcpScanType::from_index(radio_index)
-                    .unwrap()
-                    .get_detailed_message()
-                    .unwrap(),
-                NmapFlag::SctpScanType => SctpScanType::from_index(radio_index)
-                    .unwrap()
-                    .get_detailed_message()
-                    .unwrap(),
-                NmapFlag::NsockEngine => NsockEngine::from_index(radio_index)
-                    .unwrap()
-                    .get_detailed_message()
-                    .unwrap(),
-                NmapFlag::TimingTemplate => TimingTemplate::from_index(radio_index)
-                    .unwrap()
-                    .get_detailed_message()
-                    .unwrap(),
-                _ => "",
-            }
-        } else {
-            self.focused_flag.get_detailed_message().unwrap()
-        };
-        let detail_content = Paragraph::new(detailed_message)
-            .wrap(Wrap { trim: true })
-            .block(detail_block);
-        frame.render_widget(detail_content, left_chunks[1]);
+        render_details(self, frame, left_chunks[1]);
 
         render_help(self, frame, left_chunks[2]);
 
-        let main_block = Block::bordered()
-            .border_type(BorderType::Thick)
-            .title(Line::from("Nmap Flags").centered());
-        let main_area = main_block.inner(top_chunks[1]);
-        frame.render_widget(main_block, top_chunks[1]);
+        render_main(self, frame, top_chunks[1]);
 
-        let right_chunks =
-            Layout::horizontal([Constraint::Min(0), Constraint::Length(1)]).split(main_area);
-
-        let content_area = Rect {
-            x: right_chunks[0].x,
-            y: right_chunks[0].y,
-            width: right_chunks[0].width,
-            height: SECTIONS.iter().map(|section| section.height).sum(),
-        };
-
-        let flag_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(
-                SECTIONS
-                    .iter()
-                    .map(|section| Constraint::Length(section.height)),
-            )
-            .split(content_area);
-
-        for (index, (&flag_chunk, section)) in flag_chunks.iter().zip(SECTIONS.iter()).enumerate() {
-            let terminal_y = flag_chunk.y as i16 - self.scroll as i16;
-            if terminal_y + flag_chunk.height as i16 > right_chunks[0].y as i16
-                && terminal_y < (right_chunks[0].y + right_chunks[0].height) as i16
-            {
-                let terminal_rect = Rect {
-                    x: right_chunks[0].x,
-                    y: terminal_y.max(right_chunks[0].y as i16) as u16,
-                    width: right_chunks[0].width,
-                    height: flag_chunk.height,
-                };
-                let visible_area = terminal_rect.intersection(right_chunks[0]);
-
-                let border_style = if index == self.focused_section {
-                    Style::default().fg(Color::Yellow)
-                } else {
-                    Style::default()
-                };
-                let flag_block = Block::bordered()
-                    .title(section.name)
-                    .border_type(BorderType::Rounded)
-                    .border_style(border_style);
-                Clear.render(visible_area, frame.buffer_mut());
-                frame.render_widget(flag_block, visible_area);
-                (section.render)(
-                    self,
-                    frame,
-                    visible_area.inner(Margin {
-                        vertical: 1,
-                        horizontal: 1,
-                    }),
-                );
-            }
-        }
-
-        frame.render_stateful_widget(
-            Scrollbar::new(ScrollbarOrientation::VerticalRight),
-            top_chunks[1],
-            &mut self.scroll_state,
-        );
-
-        if let Some(error) = &self.error {
-            let footer_block = Block::bordered()
-                .border_type(BorderType::Thick)
-                .border_style(Style::default().red())
-                .title(Line::from("Error").centered());
-            let footer_content =
-                Paragraph::new(Line::from(error.to_string()).style(Style::default().red()))
-                    .centered()
-                    .block(footer_block);
-            frame.render_widget(footer_content, chunks[1]);
-        } else {
-            render_footer(self.scan, frame, chunks[1]);
-        }
+        render_footer(self, frame, chunks[1]);
 
         if let Some(flag) = self.editing_flag
             && let Some(input) = self.input_map.get(&flag)
@@ -549,13 +350,14 @@ impl<'a> App<'a> {
                         _ => (),
                     },
                     KeyCode::Char('x') => {
-                        execute_nmap(self.scan);
+                        self.execute = true;
                         self.running = false;
                     }
                     _ => {}
                 }
             }
         }
+        self.requires_admin = requires_admin(self.scan);
         Ok(())
     }
 
