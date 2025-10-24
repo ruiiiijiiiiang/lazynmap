@@ -2,12 +2,16 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Flex, Layout, Rect},
     prelude::*,
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::Paragraph,
 };
 
-use crate::tui::widgets::text_input::InputWidget;
+use crate::tui::{
+    config::{FOCUSED_STYLE, SELECTED_STYLE},
+    utils::clamped_even_vertical_split,
+    widgets::text_input::InputWidget,
+};
 
 pub struct RadioButton<'a> {
     label: String,
@@ -17,8 +21,6 @@ pub struct RadioButton<'a> {
     input: Option<&'a mut InputWidget>,
     input_editing: bool,
     selected_style: Style,
-    unselected_style: Style,
-    label_style: Style,
     focused_style: Style,
 }
 
@@ -31,10 +33,8 @@ impl<'a> RadioButton<'a> {
             marked: false,
             input: None,
             input_editing: false,
-            selected_style: Style::default().fg(Color::Green),
-            unselected_style: Style::default().fg(Color::Gray),
-            label_style: Style::default(),
-            focused_style: Style::default().fg(Color::Yellow),
+            selected_style: *SELECTED_STYLE,
+            focused_style: *FOCUSED_STYLE,
         }
     }
 
@@ -68,16 +68,6 @@ impl<'a> RadioButton<'a> {
         self
     }
 
-    pub fn with_unselected_style(mut self, style: Style) -> Self {
-        self.unselected_style = style;
-        self
-    }
-
-    pub fn with_label_style(mut self, style: Style) -> Self {
-        self.label_style = style;
-        self
-    }
-
     pub fn with_focused_style(mut self, style: Style) -> Self {
         self.focused_style = style;
         self
@@ -104,34 +94,29 @@ impl<'a> RadioButton<'a> {
             return;
         }
 
-        let (radio_text, radio_style) = if self.selected {
-            ("(●)", self.selected_style)
-        } else {
-            ("( )", self.unselected_style)
-        };
+        let style = Style::default()
+            .patch(if self.focused {
+                self.focused_style
+            } else {
+                Style::default()
+            })
+            .patch(if self.selected {
+                self.selected_style
+            } else {
+                Style::default()
+            });
 
-        // Apply focused style if focused
-        let radio_style = if self.focused {
-            self.focused_style
-        } else {
-            radio_style
-        };
-
-        let label_style = if self.focused {
-            self.focused_style
-        } else {
-            self.label_style
-        };
+        let radio_text = if self.selected { "(●)" } else { "( )" };
 
         let marker = if self.marked {
-            Span::styled("*", Style::default().fg(Color::Red))
+            Span::styled("*", style).red()
         } else {
-            Span::styled(" ", label_style)
+            Span::styled(" ", style)
         };
         let line = Line::from(vec![
-            Span::styled(radio_text, radio_style),
+            Span::styled(radio_text, style),
             marker,
-            Span::styled(&self.label, label_style),
+            Span::styled(&self.label, style),
         ]);
 
         if let Some(ref mut input) = self.input {
@@ -141,7 +126,13 @@ impl<'a> RadioButton<'a> {
                 .split(area);
 
             Paragraph::new(line).render(chunks[0], buf);
-            input.render(chunks[1], buf, self.focused, self.input_editing);
+            input.render(
+                chunks[1],
+                buf,
+                self.focused,
+                self.selected,
+                self.input_editing,
+            );
         } else {
             buf.set_line(area.x, area.y, &line, area.width);
         }
@@ -171,7 +162,6 @@ impl From<&str> for RadioOption<'_> {
     }
 }
 
-/// Radio button group that renders multiple radio buttons and ensures mutual exclusivity
 pub struct RadioGroup<'a> {
     options: Vec<RadioOption<'a>>,
     selected_index: Option<usize>,
@@ -179,8 +169,6 @@ pub struct RadioGroup<'a> {
     marked_indices: Vec<usize>,
     editing_index: Option<usize>,
     selected_style: Style,
-    unselected_style: Style,
-    label_style: Style,
     focused_style: Style,
     spacing: u16,
     num_per_row: Option<u16>,
@@ -194,10 +182,8 @@ impl<'a> RadioGroup<'a> {
             focused_index: None,
             marked_indices: Vec::new(),
             editing_index: None,
-            selected_style: Style::default().fg(Color::Green),
-            unselected_style: Style::default().fg(Color::Gray),
-            label_style: Style::default(),
-            focused_style: Style::default().fg(Color::Yellow),
+            selected_style: *SELECTED_STYLE,
+            focused_style: *FOCUSED_STYLE,
             spacing: 1,
             num_per_row: None,
         }
@@ -225,16 +211,6 @@ impl<'a> RadioGroup<'a> {
 
     pub fn with_selected_style(mut self, style: Style) -> Self {
         self.selected_style = style;
-        self
-    }
-
-    pub fn with_unselected_style(mut self, style: Style) -> Self {
-        self.unselected_style = style;
-        self
-    }
-
-    pub fn with_label_style(mut self, style: Style) -> Self {
-        self.label_style = style;
         self
     }
 
@@ -300,18 +276,16 @@ impl<'a> RadioGroup<'a> {
     }
 
     pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
+        if area.height < 1 {
+            return;
+        }
+
         let num_per_row = self.num_per_row.unwrap_or(self.options.len() as u16);
         let num_rows = (self.options.len() as u16).div_ceil(num_per_row);
 
-        let row_constraints: Vec<Constraint> =
-            (0..num_rows).map(|_| Constraint::Length(1)).collect();
-        let row_layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(row_constraints)
-            .spacing(self.spacing)
-            .split(area);
+        let row_layout = clamped_even_vertical_split(area, num_rows, 1, 1);
 
-        for row_index in 0..num_rows as usize {
+        (0..num_rows as usize).for_each(|row_index| {
             let start_index = row_index * num_per_row as usize;
             let end_index = ((row_index + 1) * num_per_row as usize).min(self.options.len());
             let row_options = &mut self.options[start_index..end_index];
@@ -341,12 +315,10 @@ impl<'a> RadioGroup<'a> {
                 .with_focused(self.focused_index == Some(index))
                 .with_marked(self.marked_indices.contains(&index))
                 .with_selected_style(self.selected_style)
-                .with_unselected_style(self.unselected_style)
-                .with_label_style(self.label_style)
                 .with_focused_style(self.focused_style);
                 radio.render(radio_area, buf);
             }
-        }
+        });
     }
 }
 

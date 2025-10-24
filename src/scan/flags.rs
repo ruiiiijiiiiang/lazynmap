@@ -492,12 +492,6 @@ pub enum NmapFlag {
     )]
     Normal,
     #[strum(
-        to_string = "XML output",
-        message = "file path",
-        detailed_message = "-oX: Saves results in XML format. Machine-parseable for automated processing. Essential for integration with other security tools."
-    )]
-    Xml,
-    #[strum(
         to_string = "Grepable output",
         message = "file path",
         detailed_message = "-oG: Line-based format easy to grep and parse. Each host on one line. Useful for quick command-line processing and scripts."
@@ -521,6 +515,12 @@ pub enum NmapFlag {
     )]
     AppendOutput,
     #[strum(
+        to_string = "ScRipT KIdd|3",
+        message = "file path",
+        detailed_message = "-oS: Saves in l33t speak format. Humorous output replacing letters with numbers. Not commonly used for serious work."
+    )]
+    ScriptKiddie,
+    #[strum(
         to_string = "Verbosity",
         message = "number (0-9)",
         detailed_message = "-v: Increases output detail during scan. Shows real-time progress and discoveries."
@@ -538,6 +538,11 @@ pub enum NmapFlag {
         detailed_message = "--stats-every: Prints scan statistics at specified intervals. Takes time value (e.g., 10s, 5m). Useful for monitoring progress of long scans."
     )]
     StatsEvery,
+    #[strum(
+        to_string = "Noninteractive",
+        detailed_message = "--noninteractive: Prevents interactive keypresses from affecting scan. Useful for automated/scripted scans. Blocks status updates via keyboard."
+    )]
+    Noninteractive,
     #[strum(
         to_string = "Reason",
         detailed_message = "--reason: Explains why port is in particular state. Shows what response caused determination. Helpful for understanding scan results."
@@ -559,10 +564,11 @@ pub enum NmapFlag {
     )]
     IfList,
     #[strum(
-        to_string = "Noninteractive",
-        detailed_message = "--noninteractive: Prevents interactive keypresses from affecting scan. Useful for automated/scripted scans. Blocks status updates via keyboard."
+        to_string = "XML output",
+        message = "file path",
+        detailed_message = "-oX: Saves results in XML format. Machine-parseable for automated processing. Essential for integration with other security tools."
     )]
-    Noninteractive,
+    Xml,
     #[strum(
         to_string = "Stylesheet",
         message = "file path",
@@ -579,12 +585,6 @@ pub enum NmapFlag {
         detailed_message = "--no-stylesheet: Outputs plain XML without stylesheet reference. Useful for custom processing. Reduces file size and external dependencies."
     )]
     NoStylesheet,
-    #[strum(
-        to_string = "ScRipT KIdd|3 oUTpuT",
-        message = "file path",
-        detailed_message = "-oS: Saves in l33t speak format. Humorous output replacing letters with numbers. Not commonly used for serious work."
-    )]
-    ScriptKiddie,
 
     // Miscellaneous
     #[strum(
@@ -774,23 +774,23 @@ impl NmapFlag {
 
             // Output
             NmapFlag::Normal => FlagValue::Path(&mut scan.output.normal),
-            NmapFlag::Xml => FlagValue::Path(&mut scan.output.xml),
             NmapFlag::Grepable => FlagValue::Path(&mut scan.output.grepable),
             NmapFlag::AllFormats => FlagValue::Path(&mut scan.output.all_formats),
             NmapFlag::Resume => FlagValue::Path(&mut scan.output.resume),
             NmapFlag::AppendOutput => FlagValue::Bool(&mut scan.output.append_output),
+            NmapFlag::ScriptKiddie => FlagValue::Path(&mut scan.output.script_kiddie),
             NmapFlag::Verbosity => FlagValue::Int(&mut scan.output.verbosity),
             NmapFlag::Debugging => FlagValue::Int(&mut scan.output.debugging),
             NmapFlag::StatsEvery => FlagValue::String(&mut scan.output.stats_every),
+            NmapFlag::Noninteractive => FlagValue::Bool(&mut scan.output.noninteractive),
             NmapFlag::Reason => FlagValue::Bool(&mut scan.output.reason),
             NmapFlag::PacketTrace => FlagValue::Bool(&mut scan.output.packet_trace),
             NmapFlag::OpenOnly => FlagValue::Bool(&mut scan.output.open_only),
             NmapFlag::IfList => FlagValue::Bool(&mut scan.output.iflist),
-            NmapFlag::Noninteractive => FlagValue::Bool(&mut scan.output.noninteractive),
+            NmapFlag::Xml => FlagValue::Path(&mut scan.output.xml),
             NmapFlag::Stylesheet => FlagValue::Path(&mut scan.output.stylesheet),
             NmapFlag::WebXml => FlagValue::Bool(&mut scan.output.webxml),
             NmapFlag::NoStylesheet => FlagValue::Bool(&mut scan.output.no_stylesheet),
-            NmapFlag::ScriptKiddie => FlagValue::Path(&mut scan.output.script_kiddie),
 
             // Miscellaneous
             NmapFlag::IpV6 => FlagValue::Bool(&mut scan.misc.ipv6),

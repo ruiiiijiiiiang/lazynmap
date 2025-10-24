@@ -2,14 +2,16 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     prelude::*,
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::Paragraph,
 };
 
-use crate::tui::widgets::text_input::InputWidget;
+use crate::tui::{
+    config::{FOCUSED_STYLE, SELECTED_STYLE},
+    widgets::text_input::InputWidget,
+};
 
-/// Checkbox widget that manages its own state
 pub struct Checkbox<'a> {
     label: String,
     checked: bool,
@@ -18,8 +20,6 @@ pub struct Checkbox<'a> {
     input: Option<&'a mut InputWidget>,
     input_editing: bool,
     checked_style: Style,
-    unchecked_style: Style,
-    label_style: Style,
     focused_style: Style,
 }
 
@@ -32,10 +32,8 @@ impl<'a> Checkbox<'a> {
             marked: false,
             input: None,
             input_editing: false,
-            checked_style: Style::default().fg(Color::Green),
-            unchecked_style: Style::default().fg(Color::Gray),
-            label_style: Style::default(),
-            focused_style: Style::default().fg(Color::Yellow),
+            checked_style: *SELECTED_STYLE,
+            focused_style: *FOCUSED_STYLE,
         }
     }
 
@@ -69,16 +67,6 @@ impl<'a> Checkbox<'a> {
         self
     }
 
-    pub fn with_unchecked_style(mut self, style: Style) -> Self {
-        self.unchecked_style = style;
-        self
-    }
-
-    pub fn with_label_style(mut self, style: Style) -> Self {
-        self.label_style = style;
-        self
-    }
-
     pub fn with_focused_style(mut self, style: Style) -> Self {
         self.focused_style = style;
         self
@@ -109,33 +97,29 @@ impl<'a> Checkbox<'a> {
             return;
         }
 
-        let (checkbox_text, checkbox_style) = if self.checked {
-            ("[X]", self.checked_style)
-        } else {
-            ("[ ]", self.unchecked_style)
-        };
+        let style = Style::default()
+            .patch(if self.focused {
+                self.focused_style
+            } else {
+                Style::default()
+            })
+            .patch(if self.checked {
+                self.checked_style
+            } else {
+                Style::default()
+            });
 
-        let checkbox_style = if self.focused {
-            self.focused_style
-        } else {
-            checkbox_style
-        };
-
-        let label_style = if self.focused {
-            self.focused_style
-        } else {
-            self.label_style
-        };
+        let checkbox_text = if self.checked { "[X]" } else { "[ ]" };
 
         let marker = if self.marked {
-            Span::styled("*", Style::default().fg(Color::Red))
+            Span::styled("*", style).red()
         } else {
-            Span::styled(" ", label_style)
+            Span::styled(" ", style)
         };
         let line = Line::from(vec![
-            Span::styled(checkbox_text, checkbox_style),
+            Span::styled(checkbox_text, style),
             marker,
-            Span::styled(&self.label, label_style),
+            Span::styled(&self.label, style),
         ]);
 
         if let Some(ref mut input) = self.input {
@@ -145,7 +129,13 @@ impl<'a> Checkbox<'a> {
                 .split(area);
 
             Paragraph::new(line).render(chunks[0], buf);
-            input.render(chunks[1], buf, self.focused, self.input_editing);
+            input.render(
+                chunks[1],
+                buf,
+                self.focused,
+                self.checked,
+                self.input_editing,
+            );
         } else {
             buf.set_line(area.x, area.y, &line, area.width);
         }

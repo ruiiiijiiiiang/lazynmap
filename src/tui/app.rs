@@ -115,7 +115,7 @@ impl<'a> App<'a> {
             .constraints([
                 Constraint::Min(0),
                 Constraint::Length(9),
-                Constraint::Length(13),
+                Constraint::Length(12),
             ])
             .split(top_chunks[0]);
 
@@ -204,6 +204,7 @@ impl<'a> App<'a> {
                         EventResult::Cancel => {
                             self.tcp_scan_type_state.editing_scan_type = None;
                         }
+                        EventResult::Consumed => self.error = input.error(),
                         _ => {}
                     }
                 }

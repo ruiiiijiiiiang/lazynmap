@@ -12,81 +12,46 @@ use crate::{
     },
     tui::{
         app::App,
-        utils::{even_horizontal_split, even_vertical_split, render_checkbox},
+        utils::{clamp_length_constraints, render_flags_in_clamped_grid},
         widgets::radio::{RadioGroup, RadioOption},
     },
 };
 
 pub fn render_timing(app: &mut App, frame: &mut Frame, area: Rect) {
+    let desired = vec![9, 6];
+    let constraints = clamp_length_constraints(&desired, area);
     let group_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(9), Constraint::Length(6)])
+        .constraints(constraints)
         .split(area);
 
-    let row_chunks = even_vertical_split(group_chunks[0], 5);
+    let flags_grid = vec![
+        vec![
+            NmapFlag::MinHostgroup,
+            NmapFlag::MaxHostgroup,
+            NmapFlag::MinParallelism,
+            NmapFlag::MaxParallelism,
+        ],
+        vec![
+            NmapFlag::MinRttTimeout,
+            NmapFlag::MaxRttTimeout,
+            NmapFlag::InitialRttTimeout,
+        ],
+        vec![
+            NmapFlag::MaxRetries,
+            NmapFlag::HostTimeout,
+            NmapFlag::ScriptTimeout,
+        ],
+        vec![
+            NmapFlag::ScanDelay,
+            NmapFlag::MaxScanDelay,
+            NmapFlag::MinRate,
+            NmapFlag::MaxRate,
+        ],
+        vec![NmapFlag::DefeatRstRatelimit, NmapFlag::DefeatIcmpRatelimit],
+    ];
 
-    // Row 0
-    let row_0_col_chunks = even_horizontal_split(row_chunks[0], 4);
-    for (&flag, &area) in [
-        NmapFlag::MinHostgroup,
-        NmapFlag::MaxHostgroup,
-        NmapFlag::MinParallelism,
-        NmapFlag::MaxParallelism,
-    ]
-    .iter()
-    .zip(row_0_col_chunks.iter())
-    {
-        render_checkbox(app, flag, frame, area);
-    }
-
-    // Row 1
-    let row_1_col_chunks = even_horizontal_split(row_chunks[1], 3);
-    for (&flag, &area) in [
-        NmapFlag::MinRttTimeout,
-        NmapFlag::MaxRttTimeout,
-        NmapFlag::InitialRttTimeout,
-    ]
-    .iter()
-    .zip(row_1_col_chunks.iter())
-    {
-        render_checkbox(app, flag, frame, area);
-    }
-
-    // Row 2
-    let row_2_col_chunks = even_horizontal_split(row_chunks[2], 3);
-    for (&flag, &area) in [
-        NmapFlag::MaxRetries,
-        NmapFlag::HostTimeout,
-        NmapFlag::ScriptTimeout,
-    ]
-    .iter()
-    .zip(row_2_col_chunks.iter())
-    {
-        render_checkbox(app, flag, frame, area);
-    }
-
-    // Row 3
-    let row_3_col_chunks = even_horizontal_split(row_chunks[3], 4);
-    for (&flag, &area) in [
-        NmapFlag::ScanDelay,
-        NmapFlag::MaxScanDelay,
-        NmapFlag::MinRate,
-        NmapFlag::MaxRate,
-    ]
-    .iter()
-    .zip(row_3_col_chunks.iter())
-    {
-        render_checkbox(app, flag, frame, area);
-    }
-
-    // Row 4
-    let row_4_col_chunks = even_horizontal_split(row_chunks[4], 2);
-    for (&flag, &area) in [NmapFlag::DefeatRstRatelimit, NmapFlag::DefeatIcmpRatelimit]
-        .iter()
-        .zip(row_4_col_chunks.iter())
-    {
-        render_checkbox(app, flag, frame, area);
-    }
+    render_flags_in_clamped_grid(app, frame, group_chunks[0], flags_grid);
 
     let row_chunks = Layout::default()
         .direction(Direction::Vertical)

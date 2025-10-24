@@ -10,6 +10,8 @@ use ratatui::{
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::tui::config::{EDITING_STYLE, FOCUSED_STYLE, INPUT_FOCUSED_STYLE, SELECTED_STYLE};
+
 // ============================================================================
 // Event Result
 // ============================================================================
@@ -42,14 +44,21 @@ pub enum InputValue {
 }
 
 impl InputWidget {
-    pub fn render(&mut self, area: Rect, buf: &mut Buffer, focused: bool, editing: bool) {
+    pub fn render(
+        &mut self,
+        area: Rect,
+        buf: &mut Buffer,
+        focused: bool,
+        selected: bool,
+        editing: bool,
+    ) {
         match self {
-            InputWidget::String(input) => input.render(area, buf, focused, editing),
-            InputWidget::Int(input) => input.render(area, buf, focused, editing),
-            InputWidget::Float(input) => input.render(area, buf, focused, editing),
-            InputWidget::VecString(input) => input.render(area, buf, focused, editing),
-            InputWidget::VecInt(input) => input.render(area, buf, focused, editing),
-            InputWidget::Path(input) => input.render(area, buf, focused, editing),
+            InputWidget::String(input) => input.render(area, buf, focused, selected, editing),
+            InputWidget::Int(input) => input.render(area, buf, focused, selected, editing),
+            InputWidget::Float(input) => input.render(area, buf, focused, selected, editing),
+            InputWidget::VecString(input) => input.render(area, buf, focused, selected, editing),
+            InputWidget::VecInt(input) => input.render(area, buf, focused, selected, editing),
+            InputWidget::Path(input) => input.render(area, buf, focused, selected, editing),
         }
     }
 
@@ -177,7 +186,7 @@ impl InputWidget {
 #[derive(Debug, Clone)]
 struct InputBuffer {
     content: String,
-    cursor: usize, // Byte position
+    cursor: usize,
 }
 
 impl InputBuffer {
@@ -252,7 +261,6 @@ impl InputBuffer {
         self.content = content;
     }
 
-    // Get cursor position in characters (for rendering)
     fn cursor_position(&self) -> usize {
         self.content[..self.cursor].chars().count()
     }
@@ -381,9 +389,10 @@ pub struct TextInput<T> {
     parser: Box<dyn Parser<T>>,
     label: Option<String>,
     placeholder: Option<String>,
-    // focused_style: Style,
-    // editing_style: Style,
-    // default_style: Style,
+    focused_style: Style,
+    input_focused_style: Style,
+    selected_style: Style,
+    editing_style: Style,
     error: Option<String>,
 }
 
@@ -394,11 +403,10 @@ impl<T> TextInput<T> {
             parser: Box::new(parser),
             label: None,
             placeholder: None,
-            // focused_style: Style::default().fg(Color::Yellow),
-            // editing_style: Style::default()
-            //     .fg(Color::Cyan)
-            //     .add_modifier(Modifier::BOLD),
-            // default_style: Style::default().fg(Color::Gray),
+            selected_style: *SELECTED_STYLE,
+            focused_style: *FOCUSED_STYLE,
+            input_focused_style: *INPUT_FOCUSED_STYLE,
+            editing_style: *EDITING_STYLE,
             error: None,
         }
     }
@@ -426,7 +434,6 @@ impl<T> TextInput<T> {
     }
 
     fn handle_key_event(&mut self, key: KeyEvent) -> EventResult<T> {
-        // Clear error on any key press
         self.error = None;
 
         match key.code {
@@ -487,54 +494,71 @@ impl<T> TextInput<T> {
         }
     }
 
-    pub fn render(&self, area: Rect, buf: &mut Buffer, focused: bool, editing: bool) {
-        let (bg_color, fg_color, label_color) = if editing {
-            (Color::Cyan, Color::Black, Color::Cyan)
-        } else if focused {
-            (Color::Yellow, Color::Black, Color::Yellow)
-        } else {
-            (Color::Gray, Color::Black, Color::Gray)
-        };
+    pub fn render(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        focused: bool,
+        selected: bool,
+        editing: bool,
+    ) {
+        let input_style = Style::default()
+            .bg(Color::Gray)
+            .fg(Color::Black)
+            .patch(if focused {
+                self.input_focused_style
+            } else {
+                Style::default()
+            })
+            .patch(if selected {
+                self.selected_style
+            } else {
+                Style::default()
+            })
+            .patch(if editing {
+                self.editing_style
+            } else {
+                Style::default()
+            });
 
-        // Calculate areas for label and input (side by side)
+        let label_style = Style::default()
+            .patch(if focused {
+                self.focused_style
+            } else {
+                Style::default()
+            })
+            .patch(if selected {
+                self.selected_style
+            } else {
+                Style::default()
+            });
+
         let (label_area, input_area) = if let Some(label) = &self.label {
-            // Calculate label width (label text + 2 spaces for padding)
             let label_width = label.len() as u16 + 2;
 
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Length(label_width), // Label
-                    Constraint::Min(0),              // Input box
-                ])
+                .constraints([Constraint::Length(label_width), Constraint::Min(0)])
                 .split(area);
             (Some(chunks[0]), chunks[1])
         } else {
             (None, area)
         };
 
-        // Render label if present
         if let (Some(label_area), Some(label)) = (label_area, &self.label) {
-            let label_style = Style::default().fg(label_color);
-            if editing {
-                let _ = label_style.add_modifier(Modifier::BOLD);
-            }
-
             let label_text = format!("{}: ", label);
             let label_line = Line::from(Span::styled(label_text, label_style));
             Paragraph::new(label_line).render(label_area, buf);
         }
 
-        // Fill the input area with background color
         for x in input_area.left()..input_area.right() {
             for y in input_area.top()..input_area.bottom() {
                 if let Some(cell) = buf.cell_mut((x, y)) {
-                    cell.set_bg(bg_color);
+                    cell.set_style(input_style);
                 }
             }
         }
 
-        // Render text or placeholder
         let display_text = if self.buffer.content().is_empty() {
             self.placeholder.as_deref().unwrap_or("")
         } else {
@@ -542,15 +566,13 @@ impl<T> TextInput<T> {
         };
 
         let text_style = if self.buffer.content().is_empty() {
-            Style::default().fg(Color::DarkGray).bg(bg_color)
+            input_style.add_modifier(Modifier::ITALIC)
         } else {
-            Style::default().fg(fg_color).bg(bg_color)
+            input_style
         };
 
-        // Render text with padding
         if input_area.width > 0 && input_area.height > 0 {
             let text_to_display = if display_text.len() > input_area.width as usize {
-                // Truncate if too long
                 &display_text[..input_area.width as usize]
             } else {
                 display_text
@@ -560,7 +582,6 @@ impl<T> TextInput<T> {
             Paragraph::new(text_line).render(input_area, buf);
         }
 
-        // Render cursor if editing
         if editing && input_area.width > 0 && input_area.height > 0 {
             let cursor_pos = self
                 .buffer
@@ -571,10 +592,9 @@ impl<T> TextInput<T> {
                 && let Some(cell) = buf.cell_mut((cursor_x, input_area.y))
             {
                 cell.set_style(
-                    Style::default()
-                        .fg(bg_color)
-                        .bg(fg_color)
-                        .add_modifier(Modifier::BOLD),
+                    input_style
+                        .add_modifier(Modifier::BOLD)
+                        .add_modifier(Modifier::RAPID_BLINK),
                 );
             }
         }
@@ -813,14 +833,21 @@ impl CompletingInput {
         }
     }
 
-    pub fn render(&mut self, area: Rect, buf: &mut Buffer, focused: bool, editing: bool) {
+    pub fn render(
+        &mut self,
+        area: Rect,
+        buf: &mut Buffer,
+        focused: bool,
+        selected: bool,
+        editing: bool,
+    ) {
         self.render_area = Some(area);
 
         if editing && !self.completer.has_suggestions() {
             self.completer.update_suggestions(self.input.content());
         }
 
-        self.input.render(area, buf, focused, editing);
+        self.input.render(area, buf, focused, selected, editing);
     }
 
     pub fn render_dropdown_overlay(&self, buf: &mut Buffer) {
@@ -854,7 +881,6 @@ impl CompletingInput {
             (area.y.saturating_sub(usable_height), usable_height)
         };
 
-        // Only render if we have at least 3 lines (borders + 1 item)
         if actual_height >= 3 {
             let dropdown_area = Rect {
                 x: area.x + offset_x,
@@ -888,7 +914,7 @@ impl CompletingInput {
                 let style = if i == self.completer.selected_index
                     && self.mode == CompletionMode::Selecting
                 {
-                    Style::default().bg(Color::Yellow).fg(Color::Black)
+                    *EDITING_STYLE
                 } else {
                     Style::default()
                 };

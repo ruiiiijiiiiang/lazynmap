@@ -452,6 +452,7 @@ version = "0.1.0"
 dependencies = [
  "arboard",
  "color-eyre",
+ "once_cell",
  "ratatui",
  "strum 0.27.2",
  "strum_macros 0.27.2",

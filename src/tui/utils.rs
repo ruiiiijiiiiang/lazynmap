@@ -19,7 +19,7 @@ use crate::{
     tui::{
         app::App,
         sections::{
-            evasion_spoof::render_evasion_spoof, host_discovery::render_host_discovery,
+            evasion_spoofing::render_evasion_spoofing, host_discovery::render_host_discovery,
             miscellaneous::render_miscellaneous, nse_script::render_nse_script,
             os_detection::render_os_detection, output::render_output,
             port_specification::render_port_specification, scan_technique::render_scan_technique,
@@ -95,12 +95,12 @@ pub const SECTIONS: [SectionData; 11] = [
     SectionData {
         name: "Evasion and Spoofing",
         height: 9,
-        render: render_evasion_spoof,
+        render: render_evasion_spoofing,
         start: NmapFlag::FragmentPackets,
     },
     SectionData {
         name: "Output",
-        height: 13,
+        height: 11,
         render: render_output,
         start: NmapFlag::Normal,
     },
@@ -345,24 +345,6 @@ pub fn initialize_scan_type_input(scan: &NmapScan, scan_type: TcpScanType) -> In
     InputWidget::String(input)
 }
 
-pub fn even_horizontal_split(area: Rect, num_split: u16) -> Rc<[Rect]> {
-    let percentage = 100 / num_split;
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(vec![Constraint::Percentage(percentage); num_split as usize])
-        .flex(Flex::SpaceBetween)
-        .spacing(1)
-        .split(area)
-}
-
-pub fn even_vertical_split(area: Rect, num_split: u16) -> Rc<[Rect]> {
-    Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Length(1); num_split as usize])
-        .spacing(1)
-        .split(area)
-}
-
 pub fn render_sections(app: &mut App, frame: &mut Frame, area: Rect) {
     let section_block = Block::bordered()
         .border_type(BorderType::Thick)
@@ -421,7 +403,7 @@ pub fn render_help(app: &mut App, frame: &mut Frame, area: Rect) {
     let help_block = Block::bordered()
         .border_type(BorderType::Thick)
         .title(Line::from("Help").centered());
-    let mut help_lines = vec![Line::from("* : requires root").red()];
+    let mut help_lines = vec![Line::from("* : requires sudo").red()];
     if let Some(flag) = app.editing_flag
         && let Some(input) = app.input_map.get(&flag)
     {
@@ -528,10 +510,9 @@ pub fn render_footer(app: &mut App, frame: &mut Frame, area: Rect) {
             .border_type(BorderType::Thick)
             .border_style(Style::default().red())
             .title(Line::from("Error").centered());
-        let footer_content =
-            Paragraph::new(Line::from(error.to_string()).style(Style::default().red()))
-                .centered()
-                .block(footer_block);
+        let footer_content = Paragraph::new(Line::from(error.to_string()).red())
+            .centered()
+            .block(footer_block);
         frame.render_widget(footer_content, area);
     } else {
         let footer_block = Block::bordered()
@@ -539,13 +520,101 @@ pub fn render_footer(app: &mut App, frame: &mut Frame, area: Rect) {
             .title(Line::from("Nmap Command").centered());
         let mut footer_spans = vec![Span::from(NmapCommandBuilder::build(app.scan))];
         if app.requires_admin {
-            footer_spans.insert(0, Span::from("sudo ").style(Style::default().red()));
+            footer_spans.insert(0, Span::from("sudo ").red());
         }
         let footer_content = Paragraph::new(Line::from(footer_spans))
             .centered()
             .block(footer_block);
         frame.render_widget(footer_content, area);
     }
+}
+
+pub fn clamp_length_constraints(desired: &[u16], area: Rect) -> Vec<Constraint> {
+    let mut remaining = area.height;
+    let mut out = Vec::with_capacity(desired.len());
+    for &d in desired {
+        if remaining == 0 {
+            out.push(Constraint::Length(0));
+            continue;
+        }
+        let take = std::cmp::min(d, remaining);
+        out.push(Constraint::Length(take));
+        remaining = remaining.saturating_sub(take);
+    }
+    out
+}
+
+pub fn clamped_even_vertical_split(
+    area: Rect,
+    num_split: u16,
+    height: u16,
+    spacing: u16,
+) -> Vec<Rect> {
+    if num_split == 0 {
+        return Vec::new();
+    }
+
+    let slot = height.saturating_add(spacing);
+    let max_rows = if slot == 0 {
+        num_split
+    } else {
+        (((area.height as u32) + spacing as u32) / slot as u32) as u16
+    };
+
+    let rows_to_make = std::cmp::min(num_split, max_rows);
+    if rows_to_make == 0 {
+        return Vec::new();
+    }
+    let constraints = vec![Constraint::Length(height); rows_to_make as usize];
+    Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .spacing(spacing)
+        .split(area)
+        .to_vec()
+}
+
+pub fn render_flags_in_clamped_grid(
+    app: &mut App,
+    frame: &mut Frame,
+    area: Rect,
+    flags_grid: Vec<Vec<NmapFlag>>,
+) {
+    let row_chunks = clamped_even_vertical_split(area, flags_grid.len() as u16, 1, 1);
+
+    for (&row_area, flags) in row_chunks.iter().zip(flags_grid.iter()) {
+        let cols = even_horizontal_split(row_area, flags.len() as u16);
+
+        for (&flag, &col_area) in flags.iter().zip(cols.iter()) {
+            render_checkbox(app, flag, frame, col_area);
+        }
+    }
+}
+
+pub fn even_horizontal_split(area: Rect, num_split: u16) -> Rc<[Rect]> {
+    if num_split == 1 {
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+            .spacing(0)
+            .split(area);
+        return Rc::new([chunks[0]]);
+    }
+    let percentage = 100 / num_split;
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![Constraint::Percentage(percentage); num_split as usize])
+        .flex(Flex::SpaceBetween)
+        .spacing(1)
+        .split(area)
+}
+
+pub fn even_vertical_split(area: Rect, num_split: u16) -> Rc<[Rect]> {
+    Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![Constraint::Length(1); num_split as usize])
+        .spacing(1)
+        .split(area)
 }
 
 pub fn requires_admin(scan: &mut NmapScan) -> bool {

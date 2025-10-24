@@ -13,15 +13,17 @@ use crate::{
     },
     tui::{
         app::App,
-        utils::render_checkbox,
+        utils::{clamp_length_constraints, render_checkbox},
         widgets::radio::{RadioGroup, RadioOption},
     },
 };
 
 pub fn render_scan_technique(app: &mut App, frame: &mut Frame, area: Rect) {
+    let desired = vec![7, 3];
+    let constraints = clamp_length_constraints(&desired, area);
     let row_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(7), Constraint::Length(3)])
+        .constraints(constraints)
         .split(area);
 
     let mut options = [

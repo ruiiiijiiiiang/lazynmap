@@ -1,4 +1,4 @@
-pub mod evasion_spoof;
+pub mod evasion_spoofing;
 pub mod host_discovery;
 pub mod miscellaneous;
 pub mod nse_script;
