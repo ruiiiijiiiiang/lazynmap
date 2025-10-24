@@ -482,7 +482,7 @@ pub fn render_main(app: &mut App, frame: &mut Frame, area: Rect) {
             };
             let flag_block = Block::bordered()
                 .title(section.name)
-                .border_type(BorderType::Rounded)
+                .border_type(BorderType::Double)
                 .border_style(border_style);
             Clear.render(visible_area, frame.buffer_mut());
             frame.render_widget(flag_block, visible_area);
