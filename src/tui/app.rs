@@ -210,13 +210,13 @@ impl<'a> App<'a> {
                 }
             } else {
                 match key.code {
-                    KeyCode::Char('q') => {
+                    KeyCode::Char('q') | KeyCode::Char('Q') => {
                         self.running = false;
                     }
-                    KeyCode::Char('j') | KeyCode::Down => self.next_section(),
-                    KeyCode::Char('k') | KeyCode::Up => self.prev_section(),
-                    KeyCode::Char('l') | KeyCode::Right => self.next_flag(),
-                    KeyCode::Char('h') | KeyCode::Left => self.prev_flag(),
+                    KeyCode::Char('j') | KeyCode::Char('J') | KeyCode::Down => self.next_section(),
+                    KeyCode::Char('k') | KeyCode::Char('K') | KeyCode::Up => self.prev_section(),
+                    KeyCode::Char('l') | KeyCode::Char('L') | KeyCode::Right => self.next_flag(),
+                    KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Left => self.prev_flag(),
                     KeyCode::Char(' ') => match flag_value {
                         FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
                         FlagValue::TcpScanType(flag_value) => match self.focused_radio_index {
@@ -328,7 +328,7 @@ impl<'a> App<'a> {
                             }
                         }
                     },
-                    KeyCode::Char('c') => match flag_value {
+                    KeyCode::Char('c') | KeyCode::Char('C') => match flag_value {
                         FlagValue::Bool(flag_value) => *flag_value = false,
                         FlagValue::TcpScanType(flag_value) => *flag_value = None,
                         FlagValue::SctpScanType(flag_value) => *flag_value = None,
@@ -350,7 +350,7 @@ impl<'a> App<'a> {
                         | FlagValue::Path(_) => self.editing_flag = Some(self.focused_flag),
                         _ => (),
                     },
-                    KeyCode::Char('x') => {
+                    KeyCode::Char('x') | KeyCode::Char('X') => {
                         self.execute = true;
                         self.running = false;
                     }

@@ -4,7 +4,7 @@ Tired of memorizing cryptic nmap flags? 😴 Say goodbye to the command-line str
 
 ![lazynmap_ui](./assets/lazynmap.png)
 
-`lazynmap` is a slick terminal user interface that transforms nmap command creation into a breeze. Craft the perfect scan command without ever leaving the comfort of our intuitive UI. 🚀
+`lazynmap` is a slick terminal user interface that transforms nmap command creation into a breeze. Craft the perfect scan command without ever leaving the comfort of its intuitive UI. 🚀
 
 ## 🔥 Features 🔥
 
