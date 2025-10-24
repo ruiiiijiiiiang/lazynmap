@@ -9,7 +9,7 @@ Tired of memorizing cryptic nmap flags? 😴 Say goodbye to the command-line str
 ## 🔥 Features 🔥
 
 - **Interactive UI:** Build nmap commands visually and interactively. No more endless man page scrolling! 📜
-- **Comprehensive Options:** We've got all the nmap scan options covered:
+- **Comprehensive Options:** It's got all the nmap scan options covered:
   - 🎯 Target Specification
   - 🕵️ Host Discovery
   - 📡 Scan Techniques
@@ -21,8 +21,9 @@ Tired of memorizing cryptic nmap flags? 😴 Say goodbye to the command-line str
   - 📄 Output
   - ✨ Miscellaneous
   - 📜 NSE Scripts
-- **Live Command Preview:** See the nmap command being built in real-time as you select options. command is displayed and can be easily copied. ✂️
+- **Live Command Preview:** See the nmap command being built in real-time as you edit options. 🏗️
 - **Direct Execution:** Execute the command directly from the app! `lazynmap` will even let you know if `sudo` privileges are needed. 🛡️
+- **Input Validation:** `lazynmap` ensures that the values you enter are valid for each nmap flag, so you can avoid common mistakes. ✅
 - **Keyboard Warrior Friendly:** Navigate the entire UI with your keyboard. ⌨️
   - **`j` / `Down`**: Next section
   - **`k` / `Up`**: Previous section
@@ -33,25 +34,42 @@ Tired of memorizing cryptic nmap flags? 😴 Say goodbye to the command-line str
   - **`c`**: Clear/Reset value
   - **`x`**: Execute command
   - **`q`**: Quit
-- **Input Validation:** `lazynmap` ensures that the values you enter are valid for each nmap flag, so you can avoid common mistakes. ✅
 
 ## 🛠️ Installation 🛠️
 
+### Local Compilation
+
 1.  Make sure you have Rust and Cargo installed on your system. 🦀
-2.  Clone this repository: `git clone https://github.com/your-username/lazynmap.git`
+2.  Clone this repository: `git clone https://github.com/ruiiiijiiiiang/lazynmap.git`
 3.  Navigate into the project directory: `cd lazynmap`
 4.  Build the project for release: `cargo build --release`
 5.  The executable will be waiting for you at `target/release/lazynmap`.
+
+### Binary Release
+
+You can download the pre-compiled binary for x86_64 Linux from the [releases page](https://github.com/ruiiiijiiiiang/lazynmap/releases).
+
+### From crates.io
+
+If you have Rust and Cargo installed, you can install `lazynmap` directly from [crates.io](https://crates.io/):
+
+```bash
+cargo install lazynmap
+```
 
 ## 🚀 Usage 🚀
 
 Simply run the application from your terminal:
 
 ```bash
-./target/release/lazynmap
+lazynmap
 ```
 
 The awesome `lazynmap` terminal interface will fire up, ready for you to craft your nmap commands with ease!
+
+## 🤝 Contributing 🤝
+
+Contributions are welcome! If you have a feature request, bug report, or want to contribute to the code, please feel free to open an issue or submit a pull request on GitHub.
 
 ## 📜 License 📜
 
