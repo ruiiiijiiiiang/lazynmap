@@ -7,13 +7,7 @@ license = "MIT"
 description = "A TUI for interactively generating nmap commands"
 readme = "README.md"
 repository = "https://github.com/ruiiiijiiiiang/lazynmap"
-keywords = [
-  "cybersecurity",
-  "nmap",
-  "network scanner",
-  "port scanner",
-  "reconnaissance",
-]
+keywords = ["cybersecurity", "nmap", "scanner", "reconnaissance"]
 categories = ["command-line-utilities", "security"]
 exclude = ["./assets"]
 
