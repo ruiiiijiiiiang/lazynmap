@@ -57,6 +57,16 @@ If you have Rust and Cargo installed, you can install `lazynmap` directly from [
 cargo install lazynmap
 ```
 
+### Nix Flake
+
+If you have Nix installed with flakes enabled, you can run `lazynmap` directly:
+
+```bash
+nix run github:ruiiiijiiiiang/lazynmap
+```
+
+Or, you can install it to your system by adding it to your `flake.nix` inputs and packages.
+
 ## 🚀 Usage 🚀
 
 Simply run the application from your terminal:

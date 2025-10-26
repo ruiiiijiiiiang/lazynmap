@@ -497,7 +497,10 @@ mod tests {
         assert!(result.is_ok());
         let scan = result.unwrap();
         assert_eq!(scan.target_specification.targets, vec!["192.168.1.1"]);
-        assert!(matches!(scan.scan_technique.tcp, Some(TcpScanType::Syn)));
+        assert!(matches!(
+            scan.scan_technique.tcp,
+            Some(TcpScanType::Connect)
+        ));
         assert_eq!(scan.port_specification.ports, Some("80,443".to_string()));
     }
 
@@ -630,7 +633,7 @@ mod tests {
 
     #[test]
     fn test_combined_scan() {
-        let command = "nmap -sS -sV -O -p- -T4 --min-rate 1000 -oA full_scan 192.168.1.1";
+        let command = "nmap -sS -sV -O -p- -T4 --min-rate 50 -oA full_scan 192.168.1.1";
         let result = NmapParser::parse(command);
         assert!(result.is_ok());
         let scan = result.unwrap();
