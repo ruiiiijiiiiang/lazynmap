@@ -15,6 +15,7 @@ keywords = [
   "reconnaissance",
 ]
 categories = ["command-line-utilities", "security"]
+exclude = ["./assets"]
 
 [dependencies]
 arboard = "3.6.1"
