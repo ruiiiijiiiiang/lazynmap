@@ -798,15 +798,15 @@ impl CompletingInput {
                 }
             },
             CompletionMode::Selecting => match key.code {
-                KeyCode::BackTab | KeyCode::Up => {
+                KeyCode::Up | KeyCode::BackTab => {
                     self.completer.select_prev();
                     EventResult::Consumed
                 }
-                KeyCode::Tab | KeyCode::Down => {
+                KeyCode::Down | KeyCode::Tab => {
                     self.completer.select_next();
                     EventResult::Consumed
                 }
-                KeyCode::Enter => {
+                KeyCode::Right | KeyCode::Enter => {
                     if let Some(selected) = self.completer.selected() {
                         let mut path_str = selected.to_string_lossy().to_string();
                         let is_dir = selected.is_dir();
@@ -817,6 +817,51 @@ impl CompletingInput {
                         self.completer.update_suggestions(self.input.content());
                         if !is_dir {
                             return self.input.handle_event(&Event::Key(key));
+                        }
+                    }
+                    EventResult::Consumed
+                }
+                KeyCode::Left => {
+                    let mut current_dir = self.input.content();
+                    if current_dir.is_empty() {
+                        current_dir = ".";
+                    }
+                    let current_path = Path::new(current_dir);
+                    let is_relative_below_cwd =
+                        current_path.is_relative() && !current_dir.starts_with("..");
+
+                    if is_relative_below_cwd {
+                        if current_dir == "." {
+                            let cwd = std::env::current_dir().unwrap();
+                            if let Some(parent) = cwd.parent() {
+                                self.input
+                                    .set_content(format!("{}/", parent.to_string_lossy()));
+                                self.completer.update_suggestions(self.input.content());
+                            }
+                        } else if let Some(parent) = current_path.parent() {
+                            let parent_str = parent.to_string_lossy().to_string();
+                            let parent_dir = if parent_str.is_empty() {
+                                ".".to_string()
+                            } else {
+                                parent_str
+                            };
+                            self.input.set_content(parent_dir);
+                            self.completer.update_suggestions(self.input.content());
+                        }
+                    } else {
+                        let resolved_path = if current_path.is_absolute() {
+                            current_path.to_path_buf()
+                        } else {
+                            std::env::current_dir()
+                                .unwrap()
+                                .join(current_path)
+                                .canonicalize()
+                                .unwrap_or_else(|_| current_path.to_path_buf())
+                        };
+                        if let Some(parent) = resolved_path.parent() {
+                            self.input
+                                .set_content(format!("{}/", parent.to_string_lossy()));
+                            self.completer.update_suggestions(self.input.content());
                         }
                     }
                     EventResult::Consumed

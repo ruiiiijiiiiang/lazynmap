@@ -861,13 +861,14 @@ pub enum FlagValue<'a> {
     TimingTemplate(&'a mut Option<TimingTemplate>),
 }
 
-pub const ADMIN_FLAGS: [NmapFlag; 14] = [
+pub const ADMIN_FLAGS: [NmapFlag; 15] = [
     NmapFlag::SynDiscovery,
     NmapFlag::AckDiscovery,
     NmapFlag::UdpDiscovery,
     NmapFlag::SctpDiscovery,
     NmapFlag::IcmpEcho,
     NmapFlag::IcmpTimestamp,
+    NmapFlag::IcmpNetmask,
     NmapFlag::IpProtocolPing,
     NmapFlag::TcpScanType,
     NmapFlag::UdpScan,

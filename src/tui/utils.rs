@@ -292,13 +292,13 @@ pub fn render_checkbox(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: R
 
     let mut checkbox = Checkbox::new(label)
         .with_checked(checked)
-        .with_focused(app.focused_flag == flag);
+        .with_focused(app.focused_flag == flag)
+        .with_marked(flag.requires_admin());
 
     if let Some(input) = input {
         checkbox = checkbox
             .with_input(Some(input))
-            .with_editing(app.editing_flag == Some(flag))
-            .with_marked(flag.requires_admin());
+            .with_editing(app.editing_flag == Some(flag));
     }
 
     checkbox.render(area, frame.buffer_mut());
@@ -411,6 +411,8 @@ pub fn render_help(app: &mut App, frame: &mut Frame, area: Rect) {
             help_lines.extend(vec![
                 Line::from(" : next selection"),
                 Line::from(" : previous selection"),
+                Line::from(" : parent directory"),
+                Line::from(" : enter directory"),
             ]);
         }
         help_lines.extend(vec![
@@ -423,7 +425,7 @@ pub fn render_help(app: &mut App, frame: &mut Frame, area: Rect) {
             Line::from("J/ : next section"),
             Line::from("K/ : previous section"),
             Line::from("L/ : next flag"),
-            Line::from("H/ : previous flags"),
+            Line::from("H/ : previous flag"),
             Line::from("󱁐 : toggle flag"),
             Line::from("C : clear flag"),
         ]);
