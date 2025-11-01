@@ -872,7 +872,11 @@ impl CompletingInput {
                 }
                 _ => {
                     self.mode = CompletionMode::Editing;
-                    self.input.handle_event(&Event::Key(key))
+                    let result = self.input.handle_event(&Event::Key(key));
+                    if matches!(result, EventResult::Consumed) {
+                        self.completer.update_suggestions(self.input.content());
+                    }
+                    result
                 }
             },
         }
