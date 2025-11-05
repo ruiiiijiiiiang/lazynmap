@@ -24,11 +24,11 @@
 
         lazynmapPkg = pkgs.rustPlatform.buildRustPackage {
           pname = "lazynmap";
-          version = "0.1.0";
+          version = "0.1.1";
 
           src = ./.;
 
-          cargoHash = "sha256-DfowkIfyPCnM0akZcGhC+LoSo6fDDeUmdtm0tl8xpdY=";
+          cargoHash = "sha256-W9f3/jcd8WLWzf4d2QTYWuwdgCobtohKoK3bLvtuvQE=";
         };
       in
       {
