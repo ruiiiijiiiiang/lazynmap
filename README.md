@@ -57,6 +57,14 @@ If you have Rust and Cargo installed, you can install `lazynmap` directly from [
 cargo install lazynmap
 ```
 
+### Arch Linux (AUR)
+
+For Arch Linux users, `lazynmap` is available on the AUR:
+
+```bash
+pacman -S lazynmap
+```
+
 ### Nix Flake
 
 If you have Nix installed with flakes enabled, you can run `lazynmap` directly:
