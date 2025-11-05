@@ -446,3 +446,160 @@ impl NmapScan {
         Self::default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tcp_scan_type_as_index() {
+        assert_eq!(TcpScanType::Syn.as_index(), 0);
+        assert_eq!(TcpScanType::Connect.as_index(), 1);
+        assert_eq!(TcpScanType::Ack.as_index(), 2);
+        assert_eq!(TcpScanType::Window.as_index(), 3);
+        assert_eq!(TcpScanType::Maimon.as_index(), 4);
+        assert_eq!(TcpScanType::Null.as_index(), 5);
+        assert_eq!(TcpScanType::Fin.as_index(), 6);
+        assert_eq!(TcpScanType::Xmas.as_index(), 7);
+        assert_eq!(TcpScanType::IpProtocol.as_index(), 8);
+        assert_eq!(TcpScanType::Idle("zombie".to_string()).as_index(), 9);
+        assert_eq!(TcpScanType::Ftp("relay".to_string()).as_index(), 10);
+        assert_eq!(TcpScanType::Scanflags("SYN".to_string()).as_index(), 11);
+    }
+
+    #[test]
+    fn test_tcp_scan_type_from_index() {
+        assert_eq!(TcpScanType::from_index(0), Some(TcpScanType::Syn));
+        assert_eq!(TcpScanType::from_index(1), Some(TcpScanType::Connect));
+        assert_eq!(TcpScanType::from_index(2), Some(TcpScanType::Ack));
+        assert_eq!(
+            TcpScanType::from_index(9),
+            Some(TcpScanType::Idle(String::new()))
+        );
+        assert_eq!(
+            TcpScanType::from_index(10),
+            Some(TcpScanType::Ftp(String::new()))
+        );
+        assert_eq!(
+            TcpScanType::from_index(11),
+            Some(TcpScanType::Scanflags(String::new()))
+        );
+    }
+
+    #[test]
+    fn test_tcp_scan_type_with_value() {
+        let idle = TcpScanType::Idle(String::new());
+        let idle_with_value = idle.with_value("192.168.1.100".to_string());
+        assert_eq!(
+            idle_with_value,
+            TcpScanType::Idle("192.168.1.100".to_string())
+        );
+
+        let ftp = TcpScanType::Ftp(String::new());
+        let ftp_with_value = ftp.with_value("ftp.example.com".to_string());
+        assert_eq!(
+            ftp_with_value,
+            TcpScanType::Ftp("ftp.example.com".to_string())
+        );
+
+        let scanflags = TcpScanType::Scanflags(String::new());
+        let scanflags_with_value = scanflags.with_value("SYNFIN".to_string());
+        assert_eq!(
+            scanflags_with_value,
+            TcpScanType::Scanflags("SYNFIN".to_string())
+        );
+    }
+
+    #[test]
+    fn test_tcp_scan_type_requires_admin() {
+        // Only Connect scan doesn't require admin
+        assert!(!TcpScanType::Connect.requires_admin());
+
+        // All other scan types require admin
+        assert!(TcpScanType::Syn.requires_admin());
+        assert!(TcpScanType::Ack.requires_admin());
+        assert!(TcpScanType::Window.requires_admin());
+        assert!(TcpScanType::Maimon.requires_admin());
+        assert!(TcpScanType::Null.requires_admin());
+        assert!(TcpScanType::Fin.requires_admin());
+        assert!(TcpScanType::Xmas.requires_admin());
+        assert!(TcpScanType::IpProtocol.requires_admin());
+        assert!(TcpScanType::Idle("zombie".to_string()).requires_admin());
+        assert!(TcpScanType::Ftp("relay".to_string()).requires_admin());
+        assert!(TcpScanType::Scanflags("SYN".to_string()).requires_admin());
+    }
+
+    #[test]
+    fn test_nmap_scan_default() {
+        let scan = NmapScan::new();
+
+        // Verify default TCP scan type is Connect
+        assert!(matches!(
+            scan.scan_technique.tcp,
+            Some(TcpScanType::Connect)
+        ));
+
+        // Verify default timing template is Normal
+        assert!(matches!(
+            scan.timing.template,
+            Some(TimingTemplate::Normal)
+        ));
+
+        // Verify UDP is disabled by default
+        assert!(!scan.scan_technique.udp);
+
+        // Verify targets are empty by default
+        assert!(scan.target_specification.targets.is_empty());
+    }
+
+    #[test]
+    fn test_sctp_scan_type_enum() {
+        // Test that SCTP scan types are properly defined
+        let init = SctpScanType::Init;
+        let cookie = SctpScanType::Cookie;
+
+        assert_ne!(init, cookie);
+    }
+
+    #[test]
+    fn test_timing_template_ordering() {
+        // Verify timing templates are correctly ordered by speed
+        assert_eq!(TimingTemplate::Paranoid as u8, 0);
+        assert_eq!(TimingTemplate::Sneaky as u8, 1);
+        assert_eq!(TimingTemplate::Polite as u8, 2);
+        assert_eq!(TimingTemplate::Normal as u8, 3);
+        assert_eq!(TimingTemplate::Aggressive as u8, 4);
+        assert_eq!(TimingTemplate::Insane as u8, 5);
+    }
+
+    #[test]
+    fn test_port_specification_defaults() {
+        let port_spec = PortSpecification::default();
+        assert!(port_spec.ports.is_none());
+        assert!(port_spec.exclude_ports.is_none());
+        assert!(!port_spec.fast_mode);
+        assert!(!port_spec.consecutive_ports);
+        assert!(port_spec.top_ports.is_none());
+        assert!(port_spec.port_ratio.is_none());
+    }
+
+    #[test]
+    fn test_service_detection_defaults() {
+        let service_detection = ServiceDetection::default();
+        assert!(!service_detection.enabled);
+        assert!(!service_detection.allports);
+        assert!(service_detection.intensity.is_none());
+        assert!(!service_detection.light);
+        assert!(!service_detection.all);
+        assert!(!service_detection.trace);
+    }
+
+    #[test]
+    fn test_os_detection_defaults() {
+        let os_detection = OsDetection::default();
+        assert!(!os_detection.enabled);
+        assert!(!os_detection.limit);
+        assert!(!os_detection.guess);
+        assert!(os_detection.max_retries.is_none());
+    }
+}
