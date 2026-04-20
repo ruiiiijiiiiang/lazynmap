@@ -285,40 +285,45 @@ impl<'a> RadioGroup<'a> {
 
         let row_layout = clamped_even_vertical_split(area, num_rows, 1, 1);
 
-        (0..num_rows as usize).for_each(|row_index| {
-            let start_index = row_index * num_per_row as usize;
-            let end_index = ((row_index + 1) * num_per_row as usize).min(self.options.len());
-            let row_options = &mut self.options[start_index..end_index];
+        row_layout
+            .iter()
+            .enumerate()
+            .for_each(|(row_index, &row_area)| {
+                let start_index = row_index * num_per_row as usize;
+                let end_index = ((row_index + 1) * num_per_row as usize).min(self.options.len());
+                let row_options = &mut self.options[start_index..end_index];
 
-            let num_cols = row_options.len() as u16;
-            let col_constraints: Vec<Constraint> = (0..num_cols)
-                .map(|_| Constraint::Percentage(100 / num_cols))
-                .collect();
-            let col_layout = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(col_constraints)
-                .flex(Flex::SpaceBetween)
-                .spacing(self.spacing)
-                .split(row_layout[row_index]);
+                let num_cols = row_options.len() as u16;
+                let col_constraints: Vec<Constraint> = (0..num_cols)
+                    .map(|_| Constraint::Percentage(100 / num_cols))
+                    .collect();
+                let col_layout = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(col_constraints)
+                    .flex(Flex::SpaceBetween)
+                    .spacing(self.spacing)
+                    .split(row_area);
 
-            for (col_index, (option, &radio_area)) in
-                row_options.iter_mut().zip(col_layout.iter()).enumerate()
-            {
-                let index = start_index + col_index;
-                let mut radio = match option {
-                    RadioOption::Text(label) => RadioButton::new(label.as_str()).with_input(None),
-                    RadioOption::Input(input) => RadioButton::new("")
-                        .with_input(Some(input))
-                        .with_editing(self.editing_index == Some(index)),
+                for (col_index, (option, &radio_area)) in
+                    row_options.iter_mut().zip(col_layout.iter()).enumerate()
+                {
+                    let index = start_index + col_index;
+                    let mut radio = match option {
+                        RadioOption::Text(label) => {
+                            RadioButton::new(label.as_str()).with_input(None)
+                        }
+                        RadioOption::Input(input) => RadioButton::new("")
+                            .with_input(Some(input))
+                            .with_editing(self.editing_index == Some(index)),
+                    }
+                    .with_selected(self.selected_index == Some(index))
+                    .with_focused(self.focused_index == Some(index))
+                    .with_marked(self.marked_indices.contains(&index))
+                    .with_selected_style(self.selected_style)
+                    .with_focused_style(self.focused_style);
+                    radio.render(radio_area, buf);
                 }
-                .with_selected(self.selected_index == Some(index))
-                .with_focused(self.focused_index == Some(index))
-                .with_marked(self.marked_indices.contains(&index))
-                .with_selected_style(self.selected_style)
-                .with_focused_style(self.focused_style);
-                radio.render(radio_area, buf);
-            }
-        });
+            });
     }
 }
 
@@ -349,5 +354,18 @@ mod tests {
 
         group.previous_focus();
         assert_eq!(group.focused_index(), Some(1));
+    }
+
+    #[test]
+    fn test_radio_group_render_small_area() {
+        use ratatui::buffer::Buffer;
+        use ratatui::layout::Rect;
+        let mut group = RadioGroup::new(vec!["A", "B", "C"]).with_num_per_row(1);
+
+        let area = Rect::new(0, 0, 10, 1);
+        let mut buffer = Buffer::empty(area);
+
+        // This should not panic
+        group.render(area, &mut buffer);
     }
 }
