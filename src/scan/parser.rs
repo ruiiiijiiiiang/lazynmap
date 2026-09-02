@@ -58,7 +58,7 @@ impl NmapParser {
         Ok(scan)
     }
 
-    fn tokenize(command: &str) -> Vec<String> {
+    pub fn tokenize(command: &str) -> Vec<String> {
         let mut tokens = Vec::new();
         let mut current = String::new();
         let mut in_quotes = false;

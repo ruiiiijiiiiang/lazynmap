@@ -34,18 +34,27 @@ enum Commands {
     },
 }
 
+fn get_scan_args(command: &str) -> Vec<String> {
+    let tokens = NmapParser::tokenize(command);
+    if tokens.first().map(|s| s.as_str()) == Some("nmap") {
+        tokens.into_iter().skip(1).collect()
+    } else {
+        tokens
+    }
+}
+
 fn run_scan(scan: &mut NmapScan) -> Result<(), Box<dyn Error>> {
     if let Ok(app_result) = App::new(scan).start()
         && app_result.execute
     {
         let command = NmapCommandBuilder::build(scan);
-        let args: Vec<&str> = command.split_whitespace().collect();
+        let args = get_scan_args(&command);
         if app_result.requires_admin {
-            println!("sudo {}", &command);
+            println!("sudo {}", command);
             let error = Command::new("sudo").arg("nmap").args(&args).exec();
             eprintln!("Failed to exec: {}", error);
         } else {
-            println!("{}", &command);
+            println!("{}", command);
             let error = Command::new("nmap").args(&args).exec();
             eprintln!("Failed to exec: {}", error);
         }
@@ -158,5 +167,17 @@ mod tests {
         assert!(result.is_ok());
         let scan = result.unwrap();
         assert_eq!(scan.nse_script.script, vec!["http-title"]);
+    }
+
+    #[test]
+    fn test_get_scan_args_strips_nmap() {
+        let args = get_scan_args("nmap -sS -p 80,443 192.168.1.1");
+        assert_eq!(args, vec!["-sS", "-p", "80,443", "192.168.1.1"]);
+    }
+
+    #[test]
+    fn test_get_scan_args_with_quoted_strings() {
+        let args = get_scan_args(r#"nmap --script-args "arg1=val1 arg2=val2" 192.168.1.1"#);
+        assert_eq!(args, vec!["--script-args", "arg1=val1 arg2=val2", "192.168.1.1"]);
     }
 }
