@@ -18,6 +18,7 @@ use crate::{
     },
     tui::{
         app::App,
+        mouse::ClickTarget,
         sections::{
             evasion_spoofing::render_evasion_spoofing, host_discovery::render_host_discovery,
             miscellaneous::render_miscellaneous, nse_script::render_nse_script,
@@ -289,6 +290,7 @@ pub fn render_checkbox(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: R
         ),
         _ => ("".to_string(), false, None),
     };
+    let has_input = input.is_some();
 
     let mut checkbox = Checkbox::new(label)
         .with_checked(checked)
@@ -302,6 +304,26 @@ pub fn render_checkbox(app: &mut App, flag: NmapFlag, frame: &mut Frame, area: R
     }
 
     checkbox.render(area, frame.buffer_mut());
+
+    if has_input {
+        // The checkbox of a flag with a value is "[ ]" plus the sudo marker; the rest of the
+        // area is its text input.
+        let toggle_width = area.width.min(4);
+        let toggle_area = Rect {
+            width: toggle_width,
+            ..area
+        };
+        let input_area = Rect {
+            x: area.x + toggle_width,
+            width: area.width - toggle_width,
+            ..area
+        };
+        app.click_regions
+            .push(toggle_area, ClickTarget::Toggle(flag));
+        app.click_regions.push(input_area, ClickTarget::Edit(flag));
+    } else {
+        app.click_regions.push(area, ClickTarget::Toggle(flag));
+    }
 }
 
 pub struct TcpScanTypeState {
@@ -360,8 +382,21 @@ pub fn render_sections(app: &mut App, frame: &mut Frame, area: Rect) {
             }
         })
         .collect::<Vec<_>>();
+    let list_area = section_block.inner(area);
     let section_paragraph = Paragraph::new(section_list).block(section_block);
     frame.render_widget(section_paragraph, area);
+
+    for index in 0..SECTIONS.len() {
+        let row_area = Rect {
+            y: list_area.y + index as u16,
+            height: 1,
+            ..list_area
+        };
+        app.click_regions.push(
+            row_area.intersection(list_area),
+            ClickTarget::Section(index),
+        );
+    }
 }
 
 pub fn render_details(app: &mut App, frame: &mut Frame, area: Rect) {
@@ -444,6 +479,7 @@ pub fn render_main(app: &mut App, frame: &mut Frame, area: Rect) {
         .title(Line::from("Nmap Flags").centered());
     let main_area = main_block.inner(area);
     frame.render_widget(main_block, area);
+    app.main_area = area;
 
     let right_chunks =
         Layout::horizontal([Constraint::Min(0), Constraint::Length(1)]).split(main_area);
@@ -488,6 +524,8 @@ pub fn render_main(app: &mut App, frame: &mut Frame, area: Rect) {
                 .border_style(border_style);
             Clear.render(visible_area, frame.buffer_mut());
             frame.render_widget(flag_block, visible_area);
+            app.click_regions
+                .push(visible_area, ClickTarget::SectionBlock(index));
             (section.render)(
                 app,
                 frame,

@@ -13,6 +13,7 @@ use crate::{
     },
     tui::{
         app::App,
+        mouse::ClickTarget,
         utils::{clamp_length_constraints, render_checkbox},
         widgets::radio::{RadioGroup, RadioOption},
     },
@@ -80,13 +81,17 @@ pub fn render_scan_technique(app: &mut App, frame: &mut Frame, area: Rect) {
         });
     let tcp_block = Block::bordered().title("TCP scan type");
     frame.render_widget(tcp_block, row_chunks[0]);
-    tcp_scan_radios.render(
+    let tcp_scan_areas = tcp_scan_radios.render(
         row_chunks[0].inner(Margin {
             vertical: 1,
             horizontal: 1,
         }),
         frame.buffer_mut(),
     );
+    for (index, area) in tcp_scan_areas {
+        app.click_regions
+            .push(area, ClickTarget::Radio(NmapFlag::TcpScanType, index));
+    }
 
     let column_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -123,11 +128,15 @@ pub fn render_scan_technique(app: &mut App, frame: &mut Frame, area: Rect) {
         (NmapFlag::SctpScanType, Some(index)) => Some(index),
         _ => None,
     });
-    sctp_radios.render(
+    let sctp_areas = sctp_radios.render(
         column_chunks[1].inner(Margin {
             vertical: 1,
             horizontal: 1,
         }),
         frame.buffer_mut(),
     );
+    for (index, area) in sctp_areas {
+        app.click_regions
+            .push(area, ClickTarget::Radio(NmapFlag::SctpScanType, index));
+    }
 }

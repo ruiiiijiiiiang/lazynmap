@@ -1,10 +1,17 @@
 use ratatui::{
     DefaultTerminal,
-    crossterm::event::{self, Event, KeyCode},
+    crossterm::{
+        event::{
+            self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton, MouseEvent,
+            MouseEventKind,
+        },
+        execute,
+    },
+    layout::Position,
     prelude::*,
     widgets::ScrollbarState,
 };
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, io::stdout};
 
 use crate::{
     consts::{self, IndexableEnum},
@@ -13,6 +20,7 @@ use crate::{
         model::{NmapScan, NsockEngine, SctpScanType, TcpScanType, TimingTemplate},
     },
     tui::{
+        mouse::{ClickRegions, ClickTarget, SCROLL_STEP},
         utils::{
             SECTIONS, TcpScanTypeState, initialize_scan_type_state, initialize_text_inputs,
             render_details, render_footer, render_help, render_main, render_sections,
@@ -41,6 +49,10 @@ pub struct App<'a> {
     pub execute: bool,
     pub requires_admin: bool,
 
+    // Clickable regions of the last drawn frame, and the area of the scrollable flags panel
+    pub click_regions: ClickRegions,
+    pub main_area: Rect,
+
     // Due to the fact that TCP scan types are valued enum variants, their inputs need to be set
     // up as special cases and tracked separately
     pub tcp_scan_type_state: TcpScanTypeState,
@@ -66,6 +78,8 @@ impl<'a> App<'a> {
             running: true,
             execute: false,
             requires_admin: false,
+            click_regions: ClickRegions::default(),
+            main_area: Rect::default(),
             tcp_scan_type_state,
         }
     }
@@ -73,9 +87,16 @@ impl<'a> App<'a> {
     pub fn start(&mut self) -> Result<AppResult, Box<dyn Error>> {
         color_eyre::install()?;
         let terminal = ratatui::init();
+        execute!(stdout(), EnableMouseCapture)?;
+        let panic_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let _ = execute!(stdout(), DisableMouseCapture);
+            panic_hook(info);
+        }));
 
         let res = self.run(terminal);
 
+        let _ = execute!(stdout(), DisableMouseCapture);
         ratatui::restore();
         if let Err(err) = &res {
             println!("{err:?}");
@@ -100,6 +121,8 @@ impl<'a> App<'a> {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
+        self.click_regions.clear();
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(15), Constraint::Length(3)])
@@ -138,7 +161,9 @@ impl<'a> App<'a> {
 
     fn handle_event(&mut self, event: Event) -> Result<(), Box<dyn Error>> {
         let flag_value = self.focused_flag.get_flag_value(self.scan);
-        if let Event::Key(key) = event {
+        if let Event::Mouse(mouse) = event {
+            self.handle_mouse_event(mouse);
+        } else if let Event::Key(key) = event {
             if self.editing_flag.is_some() {
                 let input = self.input_map.get_mut(&self.focused_flag).unwrap();
                 match input.handle_event(&event) {
@@ -368,6 +393,48 @@ impl<'a> App<'a> {
         }
     }
 
+    fn handle_mouse_event(&mut self, mouse: MouseEvent) {
+        // While a value is being edited, the keyboard owns the input until it is confirmed or
+        // cancelled.
+        if self.editing_flag.is_some() || self.tcp_scan_type_state.editing_scan_type.is_some() {
+            return;
+        }
+
+        match mouse.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                match self.click_regions.target_at(mouse.column, mouse.row) {
+                    Some(ClickTarget::Section(index)) => self.focus_section(index, true),
+                    Some(ClickTarget::SectionBlock(index)) => self.focus_section(index, false),
+                    Some(ClickTarget::Toggle(flag)) => {
+                        self.focus_flag(flag, None);
+                        self.toggle_focused_flag();
+                    }
+                    Some(ClickTarget::Edit(flag)) => {
+                        self.focus_flag(flag, None);
+                        self.edit_focused_flag();
+                    }
+                    Some(ClickTarget::Radio(flag, index)) => {
+                        self.focus_flag(flag, Some(index));
+                        self.toggle_focused_flag();
+                    }
+                    None => {}
+                }
+            }
+            MouseEventKind::ScrollDown if self.is_over_main_area(mouse) => {
+                self.set_scroll(self.scroll.saturating_add(SCROLL_STEP));
+            }
+            MouseEventKind::ScrollUp if self.is_over_main_area(mouse) => {
+                self.set_scroll(self.scroll.saturating_sub(SCROLL_STEP));
+            }
+            _ => {}
+        }
+    }
+
+    fn is_over_main_area(&self, mouse: MouseEvent) -> bool {
+        self.main_area
+            .contains(Position::new(mouse.column, mouse.row))
+    }
+
     fn set_scroll(&mut self, scroll: u16) {
         let max_scroll = SECTIONS
             .iter()
@@ -393,6 +460,15 @@ impl<'a> App<'a> {
                     .sum(),
             );
         }
+    }
+
+    fn focus_flag(&mut self, flag: NmapFlag, radio_index: Option<usize>) {
+        self.focused_flag = flag;
+        self.focused_radio_index = radio_index;
+        self.focused_section = SECTIONS
+            .iter()
+            .rposition(|section| section.start.as_index() <= flag.as_index())
+            .unwrap_or(0);
     }
 
     fn prev_section(&mut self) {
@@ -446,5 +522,176 @@ impl<'a> App<'a> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::{
+        Terminal,
+        backend::TestBackend,
+        crossterm::event::{KeyModifiers, MouseEvent},
+    };
+
+    fn draw(app: &mut App, terminal: &mut Terminal<TestBackend>) {
+        terminal.draw(|frame| app.draw(frame)).unwrap();
+    }
+
+    fn mouse(kind: MouseEventKind, column: u16, row: u16) -> Event {
+        Event::Mouse(MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        })
+    }
+
+    fn click(app: &mut App, target: ClickTarget) {
+        let area = app
+            .click_regions
+            .area_of(target)
+            .unwrap_or_else(|| panic!("{target:?} is not on screen"));
+        app.handle_event(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            area.x,
+            area.y,
+        ))
+        .unwrap();
+    }
+
+    fn terminal() -> Terminal<TestBackend> {
+        Terminal::new(TestBackend::new(160, 50)).unwrap()
+    }
+
+    #[test]
+    fn test_click_toggles_checkbox() {
+        let mut scan = NmapScan::new();
+        let mut app = App::new(&mut scan);
+        let mut terminal = terminal();
+        draw(&mut app, &mut terminal);
+
+        click(&mut app, ClickTarget::Toggle(NmapFlag::Unique));
+        assert_eq!(app.focused_flag, NmapFlag::Unique);
+        assert!(matches!(
+            NmapFlag::Unique.get_flag_value(app.scan),
+            FlagValue::Bool(true)
+        ));
+
+        draw(&mut app, &mut terminal);
+        click(&mut app, ClickTarget::Toggle(NmapFlag::Unique));
+        assert!(matches!(
+            NmapFlag::Unique.get_flag_value(app.scan),
+            FlagValue::Bool(false)
+        ));
+    }
+
+    #[test]
+    fn test_click_on_input_starts_editing() {
+        let mut scan = NmapScan::new();
+        let mut app = App::new(&mut scan);
+        let mut terminal = terminal();
+        draw(&mut app, &mut terminal);
+
+        click(&mut app, ClickTarget::Edit(NmapFlag::RandomTargets));
+        assert_eq!(app.focused_flag, NmapFlag::RandomTargets);
+        assert_eq!(app.editing_flag, Some(NmapFlag::RandomTargets));
+
+        // Clicks are ignored while a value is being edited
+        draw(&mut app, &mut terminal);
+        let area = app
+            .click_regions
+            .area_of(ClickTarget::Toggle(NmapFlag::Unique))
+            .unwrap();
+        app.handle_event(mouse(
+            MouseEventKind::Down(MouseButton::Left),
+            area.x,
+            area.y,
+        ))
+        .unwrap();
+        assert_eq!(app.editing_flag, Some(NmapFlag::RandomTargets));
+        assert!(matches!(
+            NmapFlag::Unique.get_flag_value(app.scan),
+            FlagValue::Bool(false)
+        ));
+    }
+
+    #[test]
+    fn test_click_section_then_radio() {
+        let mut scan = NmapScan::new();
+        let mut app = App::new(&mut scan);
+        let mut terminal = terminal();
+        draw(&mut app, &mut terminal);
+
+        let timing = SECTIONS
+            .iter()
+            .position(|section| section.name == "Timing")
+            .unwrap();
+        click(&mut app, ClickTarget::Section(timing));
+        assert_eq!(app.focused_section, timing);
+        assert_eq!(app.focused_flag, SECTIONS[timing].start);
+        assert_eq!(
+            app.scroll,
+            SECTIONS.iter().take(timing).map(|s| s.height).sum::<u16>()
+        );
+
+        draw(&mut app, &mut terminal);
+        click(&mut app, ClickTarget::Radio(NmapFlag::TimingTemplate, 4));
+        assert_eq!(app.focused_flag, NmapFlag::TimingTemplate);
+        assert_eq!(app.focused_radio_index, Some(4));
+        assert!(matches!(
+            NmapFlag::TimingTemplate.get_flag_value(app.scan),
+            FlagValue::TimingTemplate(Some(template)) if template.as_index() == 4
+        ));
+    }
+
+    #[test]
+    fn test_scroll_wheel_scrolls_main_area_only() {
+        let mut scan = NmapScan::new();
+        let mut app = App::new(&mut scan);
+        let mut terminal = terminal();
+        draw(&mut app, &mut terminal);
+
+        let main = app.main_area;
+        app.handle_event(mouse(MouseEventKind::ScrollDown, main.x + 5, main.y + 5))
+            .unwrap();
+        assert_eq!(app.scroll, SCROLL_STEP);
+        assert_eq!(app.focused_section, 0);
+
+        app.handle_event(mouse(MouseEventKind::ScrollDown, 0, 0))
+            .unwrap();
+        assert_eq!(app.scroll, SCROLL_STEP);
+
+        for _ in 0..100 {
+            app.handle_event(mouse(MouseEventKind::ScrollDown, main.x + 5, main.y + 5))
+                .unwrap();
+        }
+        let max_scroll: u16 = SECTIONS
+            .iter()
+            .take(SECTIONS.len() - 1)
+            .map(|s| s.height)
+            .sum();
+        assert_eq!(app.scroll, max_scroll);
+
+        for _ in 0..100 {
+            app.handle_event(mouse(MouseEventKind::ScrollUp, main.x + 5, main.y + 5))
+                .unwrap();
+        }
+        assert_eq!(app.scroll, 0);
+    }
+
+    #[test]
+    fn test_keyboard_navigation_realigns_after_wheel_scroll() {
+        let mut scan = NmapScan::new();
+        let mut app = App::new(&mut scan);
+        let mut terminal = terminal();
+        draw(&mut app, &mut terminal);
+
+        let main = app.main_area;
+        app.handle_event(mouse(MouseEventKind::ScrollDown, main.x + 5, main.y + 5))
+            .unwrap();
+        app.next_section();
+        assert_eq!(app.focused_section, 1);
+        assert_eq!(app.scroll, SECTIONS[0].height);
     }
 }
