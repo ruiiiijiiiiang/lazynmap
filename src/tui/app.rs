@@ -217,117 +217,7 @@ impl<'a> App<'a> {
                     KeyCode::Char('k') | KeyCode::Char('K') | KeyCode::Up => self.prev_section(),
                     KeyCode::Char('l') | KeyCode::Char('L') | KeyCode::Right => self.next_flag(),
                     KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Left => self.prev_flag(),
-                    KeyCode::Char(' ') => match flag_value {
-                        FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
-                        FlagValue::TcpScanType(flag_value) => match self.focused_radio_index {
-                            Some(radio_index) if radio_index <= 8 => {
-                                *flag_value = TcpScanType::from_index(radio_index);
-                            }
-                            Some(consts::IDLE_SCAN_TYPE_INDEX) => {
-                                let input_value = self.tcp_scan_type_state.idle_input.content();
-                                let scan_type = Some(TcpScanType::Idle(input_value.to_string()));
-                                *flag_value = scan_type.clone();
-                                self.tcp_scan_type_state.editing_scan_type = scan_type;
-                            }
-                            Some(consts::FTP_SCAN_TYPE_INDEX) => {
-                                let input_value = self.tcp_scan_type_state.ftp_input.content();
-                                let scan_type = Some(TcpScanType::Ftp(input_value.to_string()));
-                                *flag_value = scan_type.clone();
-                                self.tcp_scan_type_state.editing_scan_type = scan_type;
-                            }
-                            Some(consts::SCANFLAGS_SCAN_TYPE_INDEX) => {
-                                let input_value =
-                                    self.tcp_scan_type_state.scanflags_input.content();
-                                let scan_type =
-                                    Some(TcpScanType::Scanflags(input_value.to_string()));
-                                *flag_value = scan_type.clone();
-                                self.tcp_scan_type_state.editing_scan_type = scan_type;
-                            }
-                            _ => (),
-                        },
-                        FlagValue::SctpScanType(flag_value) => {
-                            *flag_value =
-                                self.focused_radio_index.and_then(SctpScanType::from_index);
-                        }
-                        FlagValue::NsockEngine(flag_value) => {
-                            *flag_value =
-                                self.focused_radio_index.and_then(NsockEngine::from_index);
-                        }
-                        FlagValue::TimingTemplate(flag_value) => {
-                            *flag_value = self
-                                .focused_radio_index
-                                .and_then(TimingTemplate::from_index);
-                        }
-                        FlagValue::Int(flag_value) => {
-                            if flag_value.is_some() {
-                                *flag_value = None
-                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
-                                && let Some(InputValue::Int(input_value)) = input.typed_value()
-                            {
-                                *flag_value = Some(input_value);
-                            } else {
-                                self.editing_flag = Some(self.focused_flag);
-                            }
-                        }
-                        FlagValue::Float(flag_value) => {
-                            if flag_value.is_some() {
-                                *flag_value = None
-                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
-                                && let Some(InputValue::Float(input_value)) = input.typed_value()
-                            {
-                                *flag_value = Some(input_value);
-                            } else {
-                                self.editing_flag = Some(self.focused_flag);
-                            }
-                        }
-                        FlagValue::String(flag_value) => {
-                            if flag_value.is_some() {
-                                *flag_value = None
-                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
-                                && let Some(InputValue::String(input_value)) = input.typed_value()
-                            {
-                                *flag_value = Some(input_value);
-                            } else {
-                                self.editing_flag = Some(self.focused_flag);
-                            }
-                        }
-                        FlagValue::VecInt(flag_value) => {
-                            if !flag_value.is_empty() {
-                                *flag_value = Vec::new()
-                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
-                                && let Some(InputValue::VecInt(input_value)) = input.typed_value()
-                                && !input_value.is_empty()
-                            {
-                                *flag_value = input_value;
-                            } else {
-                                self.editing_flag = Some(self.focused_flag);
-                            }
-                        }
-                        FlagValue::VecString(flag_value) => {
-                            if !flag_value.is_empty() {
-                                *flag_value = Vec::new()
-                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
-                                && let Some(InputValue::VecString(input_value)) =
-                                    input.typed_value()
-                                && !input_value.is_empty()
-                            {
-                                *flag_value = input_value;
-                            } else {
-                                self.editing_flag = Some(self.focused_flag);
-                            }
-                        }
-                        FlagValue::Path(flag_value) => {
-                            if flag_value.is_some() {
-                                *flag_value = None
-                            } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
-                                && let Some(InputValue::Path(input_value)) = input.typed_value()
-                            {
-                                *flag_value = Some(input_value);
-                            } else {
-                                self.editing_flag = Some(self.focused_flag);
-                            }
-                        }
-                    },
+                    KeyCode::Char(' ') => self.toggle_focused_flag(),
                     KeyCode::Char('c') | KeyCode::Char('C') => match flag_value {
                         FlagValue::Bool(flag_value) => *flag_value = false,
                         FlagValue::TcpScanType(flag_value) => *flag_value = None,
@@ -341,15 +231,7 @@ impl<'a> App<'a> {
                         FlagValue::VecString(flag_value) => *flag_value = Vec::new(),
                         FlagValue::Path(flag_value) => *flag_value = None,
                     },
-                    KeyCode::Enter => match flag_value {
-                        FlagValue::Int(_)
-                        | FlagValue::Float(_)
-                        | FlagValue::String(_)
-                        | FlagValue::VecInt(_)
-                        | FlagValue::VecString(_)
-                        | FlagValue::Path(_) => self.editing_flag = Some(self.focused_flag),
-                        _ => (),
-                    },
+                    KeyCode::Enter => self.edit_focused_flag(),
                     KeyCode::Char('x') | KeyCode::Char('X') => {
                         self.execute = true;
                         self.running = false;
@@ -362,32 +244,163 @@ impl<'a> App<'a> {
         Ok(())
     }
 
-    fn prev_section(&mut self) {
-        self.focused_section = self.focused_section.saturating_sub(1);
-        self.scroll = self
-            .scroll
-            .saturating_sub(SECTIONS[self.focused_section].height);
-        self.scroll_state = self.scroll_state.position(self.scroll as usize);
-        self.focused_flag = SECTIONS[self.focused_section].start;
-        if self.focused_flag.get_variant_count().is_some() {
-            self.focused_radio_index = Some(0);
+    /// Same as pressing space: toggles the focused flag or selects the focused radio option.
+    fn toggle_focused_flag(&mut self) {
+        let flag_value = self.focused_flag.get_flag_value(self.scan);
+        match flag_value {
+            FlagValue::Bool(flag_value) => *flag_value = !*flag_value,
+            FlagValue::TcpScanType(flag_value) => match self.focused_radio_index {
+                Some(radio_index) if radio_index <= 8 => {
+                    *flag_value = TcpScanType::from_index(radio_index);
+                }
+                Some(consts::IDLE_SCAN_TYPE_INDEX) => {
+                    let input_value = self.tcp_scan_type_state.idle_input.content();
+                    let scan_type = Some(TcpScanType::Idle(input_value.to_string()));
+                    *flag_value = scan_type.clone();
+                    self.tcp_scan_type_state.editing_scan_type = scan_type;
+                }
+                Some(consts::FTP_SCAN_TYPE_INDEX) => {
+                    let input_value = self.tcp_scan_type_state.ftp_input.content();
+                    let scan_type = Some(TcpScanType::Ftp(input_value.to_string()));
+                    *flag_value = scan_type.clone();
+                    self.tcp_scan_type_state.editing_scan_type = scan_type;
+                }
+                Some(consts::SCANFLAGS_SCAN_TYPE_INDEX) => {
+                    let input_value = self.tcp_scan_type_state.scanflags_input.content();
+                    let scan_type = Some(TcpScanType::Scanflags(input_value.to_string()));
+                    *flag_value = scan_type.clone();
+                    self.tcp_scan_type_state.editing_scan_type = scan_type;
+                }
+                _ => (),
+            },
+            FlagValue::SctpScanType(flag_value) => {
+                *flag_value = self.focused_radio_index.and_then(SctpScanType::from_index);
+            }
+            FlagValue::NsockEngine(flag_value) => {
+                *flag_value = self.focused_radio_index.and_then(NsockEngine::from_index);
+            }
+            FlagValue::TimingTemplate(flag_value) => {
+                *flag_value = self
+                    .focused_radio_index
+                    .and_then(TimingTemplate::from_index);
+            }
+            FlagValue::Int(flag_value) => {
+                if flag_value.is_some() {
+                    *flag_value = None
+                } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                    && let Some(InputValue::Int(input_value)) = input.typed_value()
+                {
+                    *flag_value = Some(input_value);
+                } else {
+                    self.editing_flag = Some(self.focused_flag);
+                }
+            }
+            FlagValue::Float(flag_value) => {
+                if flag_value.is_some() {
+                    *flag_value = None
+                } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                    && let Some(InputValue::Float(input_value)) = input.typed_value()
+                {
+                    *flag_value = Some(input_value);
+                } else {
+                    self.editing_flag = Some(self.focused_flag);
+                }
+            }
+            FlagValue::String(flag_value) => {
+                if flag_value.is_some() {
+                    *flag_value = None
+                } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                    && let Some(InputValue::String(input_value)) = input.typed_value()
+                {
+                    *flag_value = Some(input_value);
+                } else {
+                    self.editing_flag = Some(self.focused_flag);
+                }
+            }
+            FlagValue::VecInt(flag_value) => {
+                if !flag_value.is_empty() {
+                    *flag_value = Vec::new()
+                } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                    && let Some(InputValue::VecInt(input_value)) = input.typed_value()
+                    && !input_value.is_empty()
+                {
+                    *flag_value = input_value;
+                } else {
+                    self.editing_flag = Some(self.focused_flag);
+                }
+            }
+            FlagValue::VecString(flag_value) => {
+                if !flag_value.is_empty() {
+                    *flag_value = Vec::new()
+                } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                    && let Some(InputValue::VecString(input_value)) = input.typed_value()
+                    && !input_value.is_empty()
+                {
+                    *flag_value = input_value;
+                } else {
+                    self.editing_flag = Some(self.focused_flag);
+                }
+            }
+            FlagValue::Path(flag_value) => {
+                if flag_value.is_some() {
+                    *flag_value = None
+                } else if let Some(input) = self.input_map.get_mut(&self.focused_flag)
+                    && let Some(InputValue::Path(input_value)) = input.typed_value()
+                {
+                    *flag_value = Some(input_value);
+                } else {
+                    self.editing_flag = Some(self.focused_flag);
+                }
+            }
         }
     }
 
-    fn next_section(&mut self) {
-        self.scroll = (self.scroll + SECTIONS[self.focused_section].height).min(
-            SECTIONS
-                .iter()
-                .take(SECTIONS.len() - 1)
-                .map(|section| section.height)
-                .sum(),
-        );
-        self.scroll_state = self.scroll_state.position(self.scroll as usize);
-        self.focused_section = (self.focused_section + 1).min(SECTIONS.len() - 1);
-        self.focused_flag = SECTIONS[self.focused_section].start;
-        if self.focused_flag.get_variant_count().is_some() {
-            self.focused_radio_index = Some(0);
+    /// Same as pressing enter: starts editing the value of the focused flag, if it has one.
+    fn edit_focused_flag(&mut self) {
+        match self.focused_flag.get_flag_value(self.scan) {
+            FlagValue::Int(_)
+            | FlagValue::Float(_)
+            | FlagValue::String(_)
+            | FlagValue::VecInt(_)
+            | FlagValue::VecString(_)
+            | FlagValue::Path(_) => self.editing_flag = Some(self.focused_flag),
+            _ => (),
         }
+    }
+
+    fn set_scroll(&mut self, scroll: u16) {
+        let max_scroll = SECTIONS
+            .iter()
+            .take(SECTIONS.len() - 1)
+            .map(|section| section.height)
+            .sum();
+        self.scroll = scroll.min(max_scroll);
+        self.scroll_state = self.scroll_state.position(self.scroll as usize);
+    }
+
+    /// Focuses the first flag of a section, optionally scrolling the section to the top of the
+    /// flags panel.
+    fn focus_section(&mut self, index: usize, scroll: bool) {
+        self.focused_section = index;
+        self.focused_flag = SECTIONS[index].start;
+        self.focused_radio_index = self.focused_flag.get_variant_count().map(|_| 0);
+        if scroll {
+            self.set_scroll(
+                SECTIONS
+                    .iter()
+                    .take(index)
+                    .map(|section| section.height)
+                    .sum(),
+            );
+        }
+    }
+
+    fn prev_section(&mut self) {
+        self.focus_section(self.focused_section.saturating_sub(1), true);
+    }
+
+    fn next_section(&mut self) {
+        self.focus_section((self.focused_section + 1).min(SECTIONS.len() - 1), true);
     }
 
     fn prev_flag(&mut self) {
