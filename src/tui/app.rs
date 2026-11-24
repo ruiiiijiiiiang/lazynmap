@@ -2,8 +2,8 @@ use ratatui::{
     DefaultTerminal,
     crossterm::{
         event::{
-            self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseButton, MouseEvent,
-            MouseEventKind,
+            self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, MouseButton,
+            MouseEvent, MouseEventKind,
         },
         execute,
     },
@@ -394,10 +394,21 @@ impl<'a> App<'a> {
     }
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent) {
-        // While a value is being edited, the keyboard owns the input until it is confirmed or
-        // cancelled.
-        if self.editing_flag.is_some() || self.tcp_scan_type_state.editing_scan_type.is_some() {
-            return;
+        if self.is_editing() {
+            // While a value is being edited, only a click elsewhere matters: it confirms the
+            // value as Enter would, then goes on to act on what was clicked. An invalid value
+            // stays open with its error shown, so nothing typed is lost.
+            if mouse.kind != MouseEventKind::Down(MouseButton::Left) {
+                return;
+            }
+            let target = self.click_regions.target_at(mouse.column, mouse.row);
+            if self.is_editing_target(target) {
+                return;
+            }
+            let _ = self.handle_event(Event::Key(KeyEvent::from(KeyCode::Enter)));
+            if self.is_editing() {
+                return;
+            }
         }
 
         match mouse.kind {
@@ -427,6 +438,27 @@ impl<'a> App<'a> {
                 self.set_scroll(self.scroll.saturating_sub(SCROLL_STEP));
             }
             _ => {}
+        }
+    }
+
+    fn is_editing(&self) -> bool {
+        self.editing_flag.is_some() || self.tcp_scan_type_state.editing_scan_type.is_some()
+    }
+
+    /// Whether `target` is the input currently being edited.
+    fn is_editing_target(&self, target: Option<ClickTarget>) -> bool {
+        match target {
+            Some(ClickTarget::Edit(flag)) => self.editing_flag == Some(flag),
+            Some(ClickTarget::Radio(NmapFlag::TcpScanType, index)) => {
+                let editing_index = match self.tcp_scan_type_state.editing_scan_type {
+                    Some(TcpScanType::Idle(_)) => Some(consts::IDLE_SCAN_TYPE_INDEX),
+                    Some(TcpScanType::Ftp(_)) => Some(consts::FTP_SCAN_TYPE_INDEX),
+                    Some(TcpScanType::Scanflags(_)) => Some(consts::SCANFLAGS_SCAN_TYPE_INDEX),
+                    _ => None,
+                };
+                editing_index == Some(index)
+            }
+            _ => false,
         }
     }
 
@@ -597,19 +629,57 @@ mod tests {
         assert_eq!(app.focused_flag, NmapFlag::RandomTargets);
         assert_eq!(app.editing_flag, Some(NmapFlag::RandomTargets));
 
-        // Clicks are ignored while a value is being edited
+        // Clicking the input being edited keeps it open
         draw(&mut app, &mut terminal);
-        let area = app
-            .click_regions
-            .area_of(ClickTarget::Toggle(NmapFlag::Unique))
-            .unwrap();
-        app.handle_event(mouse(
-            MouseEventKind::Down(MouseButton::Left),
-            area.x,
-            area.y,
-        ))
-        .unwrap();
+        click(&mut app, ClickTarget::Edit(NmapFlag::RandomTargets));
         assert_eq!(app.editing_flag, Some(NmapFlag::RandomTargets));
+    }
+
+    fn type_text(app: &mut App, text: &str) {
+        for c in text.chars() {
+            app.handle_event(Event::Key(KeyEvent::from(KeyCode::Char(c))))
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn test_click_elsewhere_confirms_edit() {
+        let mut scan = NmapScan::new();
+        let mut app = App::new(&mut scan);
+        let mut terminal = terminal();
+        draw(&mut app, &mut terminal);
+
+        click(&mut app, ClickTarget::Edit(NmapFlag::RandomTargets));
+        type_text(&mut app, "42");
+        draw(&mut app, &mut terminal);
+        click(&mut app, ClickTarget::Toggle(NmapFlag::Unique));
+
+        assert_eq!(app.editing_flag, None);
+        assert!(matches!(
+            NmapFlag::RandomTargets.get_flag_value(app.scan),
+            FlagValue::Int(Some(42))
+        ));
+        assert_eq!(app.focused_flag, NmapFlag::Unique);
+        assert!(matches!(
+            NmapFlag::Unique.get_flag_value(app.scan),
+            FlagValue::Bool(true)
+        ));
+    }
+
+    #[test]
+    fn test_click_elsewhere_keeps_invalid_edit_open() {
+        let mut scan = NmapScan::new();
+        let mut app = App::new(&mut scan);
+        let mut terminal = terminal();
+        draw(&mut app, &mut terminal);
+
+        click(&mut app, ClickTarget::Edit(NmapFlag::RandomTargets));
+        type_text(&mut app, "abc");
+        draw(&mut app, &mut terminal);
+        click(&mut app, ClickTarget::Toggle(NmapFlag::Unique));
+
+        assert_eq!(app.editing_flag, Some(NmapFlag::RandomTargets));
+        assert!(app.error.is_some());
         assert!(matches!(
             NmapFlag::Unique.get_flag_value(app.scan),
             FlagValue::Bool(false)
