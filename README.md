@@ -34,6 +34,11 @@ Tired of memorizing cryptic nmap flags? 😴 Say goodbye to the command-line str
   - **`c`**: Clear/Reset value
   - **`x`**: Execute command
   - **`q`**: Quit
+- **Mouse Friendly:** Prefer pointing and clicking? That works too. 🖱️
+  - **Click a checkbox or option**: Toggle/Select it
+  - **Click an input**: Edit its value
+  - **Click a section in the sidebar**: Jump to it
+  - **Scroll wheel**: Scroll the flags panel
 
 ## 🛠️ Installation 🛠️
 
