@@ -12,6 +12,7 @@ use crate::{
     },
     tui::{
         app::App,
+        mouse::ClickTarget,
         utils::{clamp_length_constraints, render_flags_in_clamped_grid},
         widgets::radio::{RadioGroup, RadioOption},
     },
@@ -76,13 +77,17 @@ pub fn render_timing(app: &mut App, frame: &mut Frame, area: Rect) {
         (NmapFlag::NsockEngine, Some(index)) => Some(index),
         _ => None,
     });
-    nsock_radios.render(
+    let nsock_areas = nsock_radios.render(
         row_chunks[0].inner(Margin {
             vertical: 1,
             horizontal: 1,
         }),
         frame.buffer_mut(),
     );
+    for (index, area) in nsock_areas {
+        app.click_regions
+            .push(area, ClickTarget::Radio(NmapFlag::NsockEngine, index));
+    }
 
     let timing_block = Block::bordered().title("Timing template");
     frame.render_widget(timing_block, row_chunks[1]);
@@ -102,11 +107,15 @@ pub fn render_timing(app: &mut App, frame: &mut Frame, area: Rect) {
         (NmapFlag::TimingTemplate, Some(index)) => Some(index),
         _ => None,
     });
-    timing_radios.render(
+    let timing_areas = timing_radios.render(
         row_chunks[1].inner(Margin {
             vertical: 1,
             horizontal: 1,
         }),
         frame.buffer_mut(),
     );
+    for (index, area) in timing_areas {
+        app.click_regions
+            .push(area, ClickTarget::Radio(NmapFlag::TimingTemplate, index));
+    }
 }
