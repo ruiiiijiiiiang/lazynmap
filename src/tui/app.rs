@@ -195,15 +195,7 @@ impl<'a> App<'a> {
                         self.editing_flag = None;
                     }
                     EventResult::Cancel => {
-                        match flag_value {
-                            FlagValue::Int(flag_value) => *flag_value = None,
-                            FlagValue::Float(flag_value) => *flag_value = None,
-                            FlagValue::String(flag_value) => *flag_value = None,
-                            FlagValue::VecInt(flag_value) => *flag_value = Vec::new(),
-                            FlagValue::VecString(flag_value) => *flag_value = Vec::new(),
-                            FlagValue::Path(flag_value) => *flag_value = None,
-                            _ => {}
-                        }
+                        clear_flag_value(flag_value);
                         self.editing_flag = None;
                     }
                     EventResult::Consumed => self.error = input.error(),
@@ -395,9 +387,8 @@ impl<'a> App<'a> {
 
     fn handle_mouse_event(&mut self, mouse: MouseEvent) {
         if self.is_editing() {
-            // While a value is being edited, only a click elsewhere matters: it confirms the
-            // value as Enter would, then goes on to act on what was clicked. An invalid value
-            // stays open with its error shown, so nothing typed is lost.
+            // While a value is being edited, only a click elsewhere matters: it closes the
+            // input, then goes on to act on what was clicked.
             if mouse.kind != MouseEventKind::Down(MouseButton::Left) {
                 return;
             }
@@ -405,10 +396,7 @@ impl<'a> App<'a> {
             if self.is_editing_target(target) {
                 return;
             }
-            let _ = self.handle_event(Event::Key(KeyEvent::from(KeyCode::Enter)));
-            if self.is_editing() {
-                return;
-            }
+            self.close_edit_on_click();
         }
 
         match mouse.kind {
@@ -438,6 +426,39 @@ impl<'a> App<'a> {
                 self.set_scroll(self.scroll.saturating_sub(SCROLL_STEP));
             }
             _ => {}
+        }
+    }
+
+    /// Closes the open input because the user clicked elsewhere. A valid value is confirmed as
+    /// Enter would, an empty input clears the value as Esc would, and anything that can't be
+    /// parsed is discarded so the flag keeps its previous value. Either way the input closes,
+    /// so the click can never get stuck on it.
+    fn close_edit_on_click(&mut self) {
+        let _ = self.handle_event(Event::Key(KeyEvent::from(KeyCode::Enter)));
+        // The TCP scan type inputs take any string, so only a flag input can still be open.
+        let Some(flag) = self.editing_flag.take() else {
+            return;
+        };
+        self.error = None;
+        let flag_value = flag.get_flag_value(self.scan);
+        let input = self.input_map.get_mut(&flag).unwrap();
+        if input.content().trim().is_empty() {
+            clear_flag_value(flag_value);
+            input.clear();
+            return;
+        }
+        let previous = match flag_value {
+            FlagValue::Int(Some(value)) => Some(InputValue::Int(*value)),
+            FlagValue::Float(Some(value)) => Some(InputValue::Float(*value)),
+            FlagValue::String(Some(value)) => Some(InputValue::String(value.clone())),
+            FlagValue::VecInt(value) => Some(InputValue::VecInt(value.clone())),
+            FlagValue::VecString(value) => Some(InputValue::VecString(value.clone())),
+            FlagValue::Path(Some(value)) => Some(InputValue::Path(value.clone())),
+            _ => None,
+        };
+        input.clear();
+        if let Some(previous) = previous {
+            input.set_typed_value(previous);
         }
     }
 
@@ -557,6 +578,19 @@ impl<'a> App<'a> {
     }
 }
 
+/// Unsets a value flag, as cancelling its input does.
+fn clear_flag_value(flag_value: FlagValue) {
+    match flag_value {
+        FlagValue::Int(flag_value) => *flag_value = None,
+        FlagValue::Float(flag_value) => *flag_value = None,
+        FlagValue::String(flag_value) => *flag_value = None,
+        FlagValue::VecInt(flag_value) => *flag_value = Vec::new(),
+        FlagValue::VecString(flag_value) => *flag_value = Vec::new(),
+        FlagValue::Path(flag_value) => *flag_value = None,
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -666,24 +700,57 @@ mod tests {
         ));
     }
 
+    fn assert_unique_toggled(app: &mut App) {
+        assert_eq!(app.editing_flag, None);
+        assert_eq!(app.error, None);
+        assert_eq!(app.focused_flag, NmapFlag::Unique);
+        assert!(matches!(
+            NmapFlag::Unique.get_flag_value(app.scan),
+            FlagValue::Bool(true)
+        ));
+    }
+
     #[test]
-    fn test_click_elsewhere_keeps_invalid_edit_open() {
+    fn test_click_elsewhere_from_empty_input_clears_it() {
         let mut scan = NmapScan::new();
         let mut app = App::new(&mut scan);
         let mut terminal = terminal();
         draw(&mut app, &mut terminal);
 
         click(&mut app, ClickTarget::Edit(NmapFlag::RandomTargets));
-        type_text(&mut app, "abc");
         draw(&mut app, &mut terminal);
         click(&mut app, ClickTarget::Toggle(NmapFlag::Unique));
 
-        assert_eq!(app.editing_flag, Some(NmapFlag::RandomTargets));
-        assert!(app.error.is_some());
+        assert_unique_toggled(&mut app);
         assert!(matches!(
-            NmapFlag::Unique.get_flag_value(app.scan),
-            FlagValue::Bool(false)
+            NmapFlag::RandomTargets.get_flag_value(app.scan),
+            FlagValue::Int(None)
         ));
+    }
+
+    #[test]
+    fn test_click_elsewhere_discards_invalid_value() {
+        let mut scan = NmapScan::new();
+        let mut app = App::new(&mut scan);
+        let mut terminal = terminal();
+        draw(&mut app, &mut terminal);
+
+        click(&mut app, ClickTarget::Edit(NmapFlag::RandomTargets));
+        type_text(&mut app, "42");
+        app.handle_event(Event::Key(KeyEvent::from(KeyCode::Enter)))
+            .unwrap();
+        draw(&mut app, &mut terminal);
+        click(&mut app, ClickTarget::Edit(NmapFlag::RandomTargets));
+        type_text(&mut app, "x");
+        draw(&mut app, &mut terminal);
+        click(&mut app, ClickTarget::Toggle(NmapFlag::Unique));
+
+        assert_unique_toggled(&mut app);
+        assert!(matches!(
+            NmapFlag::RandomTargets.get_flag_value(app.scan),
+            FlagValue::Int(Some(42))
+        ));
+        assert_eq!(app.input_map[&NmapFlag::RandomTargets].content(), "42");
     }
 
     #[test]
