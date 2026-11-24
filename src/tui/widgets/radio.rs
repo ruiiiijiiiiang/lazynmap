@@ -275,9 +275,12 @@ impl<'a> RadioGroup<'a> {
         self.focused_index
     }
 
-    pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
+    /// Renders the group and returns the area of every option that was drawn, paired with the
+    /// option's index, so callers can map mouse clicks back to options.
+    pub fn render(&mut self, area: Rect, buf: &mut Buffer) -> Vec<(usize, Rect)> {
+        let mut option_areas = Vec::new();
         if area.height < 1 {
-            return;
+            return option_areas;
         }
 
         let num_per_row = self.num_per_row.unwrap_or(self.options.len() as u16);
@@ -322,8 +325,10 @@ impl<'a> RadioGroup<'a> {
                     .with_selected_style(self.selected_style)
                     .with_focused_style(self.focused_style);
                     radio.render(radio_area, buf);
+                    option_areas.push((index, radio_area));
                 }
             });
+        option_areas
     }
 }
 
